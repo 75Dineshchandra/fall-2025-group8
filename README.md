@@ -128,6 +128,6 @@
 
 
 ## Contact
-- Author: Amir Jafari
+- Author: Ganesh Kumar Boini, Dinesh Chandra Gaddam , Sirisha Ginnu
 - Email: [g.boini@gwu.edu](mailto:g.boini@gwu.edu),[dineshchandra.gaddam@gwmail.gwu.edu](mailto:dineshchandra.gaddam@gwmail.gwu.edu),[sirisha.ginnu@gwmail.gwu.edu](mailto:sirisha.ginnu@gwmail.gwu.edu)
 - GitHub: [None](https://github.com/None)
