@@ -129,5 +129,5 @@
 
 ## Contact
 - Author: Amir Jafari
-- Email: [ajafari@gwu.edu](mailto:ajafari@gwu.edu)
+- Email: [g.boini@gwu.edu](mailto:g.boini@gwu.edu),[dineshchandra.gaddam@gwmail.gwu.edu](mailto:dineshchandra.gaddam@gwmail.gwu.edu),[sirisha.ginnu@gwmail.gwu.edu](mailto:sirisha.ginnu@gwmail.gwu.edu)
 - GitHub: [None](https://github.com/None)
