@@ -1,0 +1,4 @@
+# --- secrets & OS trash ---
+.env
+.env.*
+.DS_Store

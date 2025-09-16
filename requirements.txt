@@ -1,0 +1,10 @@
+numpy
+matplotlib
+pandas
+scikit-learn
+gymnasium
+pygame
+tqdm
+tensorboard
+tensorflow
+keras
