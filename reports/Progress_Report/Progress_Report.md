@@ -4,34 +4,16 @@ Note: Use Markdown Cheat Sheet download in the directory as needed.
   - https://github.com/im-luka/markdown-cheatsheet
 
 ---
-## Date: Week 1 - Month Day Year 
+## Date: Week 1 & 2- 09 - 16 - 2025 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - read the notes 
+    - prepping code and repo
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
----
+* [ ] read the notes 
+* [ ] prepping code and repo
 
-## Date: Week 2 - Month Day Year 
-- Topics of discussion
-    - Item1
-    - Item2
-    - Item3
-
-- Action Items:
-
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
 ---
 ## Date: Week 3 - Month Day Year 
 - Topics of discussion

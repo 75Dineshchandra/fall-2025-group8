@@ -30,10 +30,8 @@ def get_actions(data):
     data = pd.DataFrame(data)
     actions = data['description'].unique()   # ✅ directly get unique descriptions
     actions_list = actions.tolist()  # convert numpy array → python list
-    print("Unique actions as list:")
-    print(actions_list)
-
-
+    #print("Unique actions as list:")
+    #print(actions_list)
     return (actions)
 
 
@@ -90,7 +88,7 @@ features = get_features(data)
 print("Features shape:", features.shape)
 
 actions = get_actions(data)
-print("Unique actions:", actions)  # show first 10 actions
+print("Unique actions:", actions[:55])  # show first 10 actions
 
 # %%
 num_actions = len(actions)

@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # --- Load Data ---
-file_path = "/Users/sirishag/Documents/CapStone8/fall-2025-group8/src/data/sales.csv"
+file_path = "sales.csv"
 df = pd.read_csv(file_path)
 
 # --- Basic Info ---
