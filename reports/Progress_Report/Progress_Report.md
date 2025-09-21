@@ -11,8 +11,8 @@ Note: Use Markdown Cheat Sheet download in the directory as needed.
 
 - Action Items:
 
-* [ ] read the notes 
-* [ ] prepping code and repo
+* [ Done] read the notes 
+* [Done ] prepping code and repo
 
 ---
 ## Date: Week 3 - Month Day Year 
