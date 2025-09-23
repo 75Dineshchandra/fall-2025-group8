@@ -371,3 +371,87 @@ alpha[action] += reward
 beta[action] += (1 - reward)
 ```
 
+
+
+
+# Week 3 – Nutritional Scoring & Health Index
+
+This week focuses on computing a **health score** for foods using nutritional information, inspired by NRF9.3 scoring methodology. The goal is to calculate a normalized score (0–10) for each food item based on its nutrient content relative to daily recommended values (DV) for different school age groups.
+
+---
+
+## Key Concepts
+
+- **Good Nutrients** (encouraged): Protein, Dietary Fiber, Vitamin D, Calcium, Iron, Potassium, Vitamin A, Vitamin C  
+- **Bad Nutrients** (to limit): Added Sugars, Saturated Fat, Sodium  
+- **Daily Values (DV)** vary by school group:
+  - Elementary  
+  - Middle  
+  - High School  
+
+- **NRF9.3**: Nutrient Rich Foods index.  
+  - Formula: sum of %DV for 9 qualifying nutrients minus sum of %DV for 3 limiting nutrients.  
+  - Source: [ScienceDirect NRF9.3](https://www.sciencedirect.com/science/article/pii/S0022316622068420?via%3Dihub)
+
+- **Normalization**: Raw health scores are scaled to **0–10** using default min/max ranges for comparability.
+
+---
+
+## Code
+
+### Load Data
+```python
+import pandas as pd
+
+def load_data(file_path):
+    """Load CSV data as a DataFrame."""
+    data = pd.read_csv(file_path)
+    return data
+
+def get_actions(data):
+    """Return unique food items."""
+    return data['sales_item'].unique()
+
+def get_features(data):
+    """Return feature matrix (all columns except 'sales_item')."""
+    return data
+
+def health_score(row, min_score=-300, max_score=800):
+    DV = {
+        "elementary": {"Calories":1600,"Protein":19,"Total Carbohydrate":130,
+                       "Dietary Fiber":25,"Added Sugars":25,"Total Fat":40,
+                       "Saturated Fat":20,"Sodium":1500,"Vitamin D":20,
+                       "Calcium":1000,"Iron":10,"Potassium":4700,
+                       "Vitamin A":900,"Vitamin C":90},
+        "middle": {"Calories":2200,"Protein":34,"Total Carbohydrate":130,
+                   "Dietary Fiber":31,"Added Sugars":50,"Total Fat":77,
+                   "Saturated Fat":20,"Sodium":2300,"Vitamin D":20,
+                   "Calcium":1300,"Iron":18,"Potassium":4700,
+                   "Vitamin A":900,"Vitamin C":90},
+        "high": {"Calories":2600,"Protein":46,"Total Carbohydrate":130,
+                 "Dietary Fiber":38,"Added Sugars":50,"Total Fat":91,
+                 "Saturated Fat":20,"Sodium":2300,"Vitamin D":20,
+                 "Calcium":1300,"Iron":18,"Potassium":4700,
+                 "Vitamin A":900,"Vitamin C":90}
+    }
+
+    GOOD = ["Protein","Dietary Fiber","Vitamin D","Calcium",
+            "Iron","Potassium","Vitamin A","Vitamin C"]
+    BAD = ["Added Sugars","Saturated Fat","Sodium"]
+
+    group = str(row.get("school_group","high")).lower()
+    dv = DV.get(group, DV["high"])
+
+    good_score = sum(min(100, (row.get(n,0)/dv[n])*100) for n in GOOD)
+    bad_score  = sum(min(100, (row.get(n,0)/dv[n])*100) for n in BAD)
+
+    raw_score = good_score - bad_score
+
+    # Normalize to 0-10
+    scaled_score = 10 * (raw_score - min_score) / (max_score - min_score)
+    return round(max(0, min(10, scaled_score)), 1)
+
+data = load_data("data/sales.csv")
+data["HealthScore"] = data.apply(health_score, axis=1)
+data.to_csv("scored_data.csv", index=False)
+print("✅ Health scores calculated and saved to scored_data.csv")
