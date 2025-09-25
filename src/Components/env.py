@@ -1,129 +1,239 @@
-#%%
+# %%
 import numpy as np
+import pandas as pd
 
-def create_environment(**kwargs):
+def load_data(file_path):
     """
-    Create synthetic data for a multi-armed bandit environment.
+    Load data from a CSV file.
 
     Parameters:
-    - env (str): The type of environment to generate ("gaussian" or "bernoulli").
-    - n_arms (int): The number of arms in the bandit (default is 2).
-    - arm_means (list): List of lists representing mean values for each arm in each environment.
-      For "gaussian" environment, it should be a list of lists of floats.
-      For "bernoulli" environment, it should be a list of lists of probabilities.
-      Default is [[0.9, 0.1], [0.1, 0.9]].
-    - arm_stds (list): List of lists representing standard deviations for each arm in each environment.
-      Only used for "gaussian" environment. If not provided, defaults to 0.1 for all arms.
-      Should have the same structure as arm_means.
-    - random_seed (int): Seed for the random number generator (default is None).
-    - observations (int): Number of observations to generate for each arm (default is 2000).
+    - file_path (str): The path to the CSV file.
 
     Returns:
-    - numpy.ndarray: Synthetic data matrix representing observations from the specified multi-armed bandit environment.
-      Shape: (total_observations, n_arms) where total_observations = observations
-      For "gaussian" environment, each column corresponds to continuous rewards for an arm.
-      For "bernoulli" environment, each column corresponds to binary outcomes for an arm.
-
-    Examples:
-    ## Example 1: Create a default Gaussian environment with custom random seed.
-    >>> data = create_environment(env="gaussian", random_seed=42)
-
-    ## Example 2: Create a Gaussian environment with custom means and standard deviations.
-    >>> data = create_environment(
-    ...     env="gaussian", 
-    ...     n_arms=3,
-    ...     arm_means=[[0.5, 0.7, 0.3], [0.8, 0.4, 0.6]], 
-    ...     arm_stds=[[0.1, 0.15, 0.2], [0.1, 0.1, 0.1]],
-    ...     observations=1000,
-    ...     random_seed=42
-    ... )
-
-    ## Example 3: Create a default Bernoulli environment with custom random seed.
-    >>> data = create_environment(env="bernoulli", random_seed=42)
-
-    ## Example 4: Create a Bernoulli environment with custom probabilities.
-    >>> data = create_environment(
-    ...     env="bernoulli", 
-    ...     n_arms=4,
-    ...     arm_means=[[0.2, 0.5, 0.8, 0.3], [0.7, 0.1, 0.9, 0.4]], 
-    ...     observations=1500,
-    ...     random_seed=42
-    ... )
+    - pandas.DataFrame: The loaded data as a DataFrame.
     """
+    data = pd.read_csv(file_path)
+    return data
 
-    environment = kwargs.get("env", None)
-    n_arms = kwargs.get("n_arms", 2)
-    arm_means = kwargs.get("arm_means", [[0.9, 0.1], [0.1, 0.9]])
-    arm_stds = kwargs.get("arm_stds", None)
-    random_seed = kwargs.get("random_seed", None)
-    observations = kwargs.get("observations", 2000)
-    
-    # Input validation
-    if environment not in ["gaussian", "bernoulli"]:
-        raise ValueError("Environment must be either 'gaussian' or 'bernoulli'")
-    
-    if len(arm_means) == 0:
-        raise ValueError("arm_means cannot be empty")
-    
-    if not all(len(env_means) == n_arms for env_means in arm_means):
-        raise ValueError(f"Each environment in arm_means must have exactly {n_arms} arms")
-    
-    # Set random seed
-    if random_seed is not None:
-        np.random.seed(random_seed)
-    
-    n_environments = len(arm_means)
-    obs_per_env = observations // n_environments
-    
-    if environment == "gaussian":
-        # Set default standard deviations if not provided
-        if arm_stds is None:
-            arm_stds = [[0.1] * n_arms for _ in range(n_environments)]
-        
-        # Validate arm_stds structure
-        if len(arm_stds) != n_environments:
-            raise ValueError("arm_stds must have the same number of environments as arm_means")
-        
-        if not all(len(env_stds) == n_arms for env_stds in arm_stds):
-            raise ValueError(f"Each environment in arm_stds must have exactly {n_arms} arms")
-        
-        # Generate Gaussian data
-        gaussian_data = []
-        for env_idx in range(n_environments):
-            env_data = []
-            for arm_idx in range(n_arms):
-                mean = arm_means[env_idx][arm_idx]
-                std = arm_stds[env_idx][arm_idx]
-                arm_data = np.random.normal(mean, std, size=(obs_per_env, 1))
-                env_data.append(arm_data)
-            
-            # Concatenate arms horizontally for this environment
-            env_data_matrix = np.hstack(env_data)
-            gaussian_data.append(env_data_matrix)
-        
-        # Stack all environments vertically
-        return np.vstack(gaussian_data)
-    
-    elif environment == "bernoulli":
-        # Validate probabilities for Bernoulli
-        for env_idx, env_means in enumerate(arm_means):
-            for arm_idx, prob in enumerate(env_means):
-                if not (0 <= prob <= 1):
-                    raise ValueError(f"Bernoulli probabilities must be between 0 and 1. "
-                                   f"Found {prob} at environment {env_idx}, arm {arm_idx}")
-        
-        # Generate Bernoulli data
-        bernoulli_data = []
-        for env_idx in range(n_environments):
-            env_data = []
-            for arm_idx in range(n_arms):
-                prob = arm_means[env_idx][arm_idx]
-                arm_data = np.random.choice([0, 1], size=(obs_per_env, 1), p=[1-prob, prob])
-                env_data.append(arm_data)
-            
-            # Concatenate arms horizontally for this environment
-            env_data_matrix = np.hstack(env_data)
-            bernoulli_data.append(env_data_matrix)
-        
-        # Stack all environments vertically
-        return np.vstack(bernoulli_data)
+
+# %%
+def get_actions(data):
+    """
+    Extract unique actions from the data.
+
+    Parameters:
+    - data (pandas.DataFrame): The input data.
+
+    Returns:
+    - numpy.ndarray: Unique actions from the 'description' column.
+    """
+    data = pd.DataFrame(data)
+    actions = data['sales_item'].unique()   # ✅ directly get unique descriptions
+    actions_list = actions.tolist()  # convert numpy array → python list
+    #print("Unique actions as list:")
+    #print(actions_list)
+    return (actions)
+
+
+# %%
+def get_features(data):
+    """
+    Extract features from the data (all columns except 'description').
+
+    Parameters:
+    - data (pandas.DataFrame): The input data.
+
+    Returns:
+    - numpy.ndarray: The features extracted from the data.
+    """
+    data = pd.DataFrame(data)
+    return data
+#%%
+
+def health_score(row):
+    # Daily Values (DV) per school group
+    DV = {
+        "elementary": {
+            "Calories": 1600, "Protein": 19, "Total Carbohydrate": 130,
+            "Dietary Fiber": 25, "Added Sugars": 25, "Total Fat": 40,
+            "Saturated Fat": 20, "Sodium": 1500, "Vitamin D": 20,
+            "Calcium": 1000, "Iron": 10, "Potassium": 4700,
+            "Vitamin A": 900, "Vitamin C": 90
+        },
+        "middle": {
+            "Calories": 2200, "Protein": 34, "Total Carbohydrate": 130,
+            "Dietary Fiber": 31, "Added Sugars": 50, "Total Fat": 77,
+            "Saturated Fat": 20, "Sodium": 2300, "Vitamin D": 20,
+            "Calcium": 1300, "Iron": 18, "Potassium": 4700,
+            "Vitamin A": 900, "Vitamin C": 90
+        },
+        "high": {
+            "Calories": 2600, "Protein": 46, "Total Carbohydrate": 130,
+            "Dietary Fiber": 38, "Added Sugars": 50, "Total Fat": 91,
+            "Saturated Fat": 20, "Sodium": 2300, "Vitamin D": 20,
+            "Calcium": 1300, "Iron": 18, "Potassium": 4700,
+            "Vitamin A": 900, "Vitamin C": 90
+        }
+    }
+
+    # Nutrients classification
+    GOOD = ["Protein", "Dietary Fiber", "Vitamin D", "Calcium",
+            "Iron", "Potassium", "Vitamin A", "Vitamin C"]
+    BAD = ["Added Sugars", "Saturated Fat", "Sodium"]
+
+    # Determine school group (default high school)
+    school_group = str(row.get("school_group", "high")).lower()
+    if "elementary" in school_group:
+        dv = DV["elementary"]
+    elif "middle" in school_group:
+        dv = DV["middle"]
+    elif "high" in school_group:
+        dv = DV["high"]
+    else:
+        dv = DV["high"]
+
+    good_score = 0
+    bad_score = 0
+
+    # Calculate %DV for good nutrients
+    for n in GOOD:
+        val = row.get(n, 0) or 0
+        ref = dv.get(n, 1)
+        good_score += min(100, (val / ref) * 100)
+
+    # Calculate %DV for bad nutrients
+    for n in BAD:
+        val = row.get(n, 0) or 0
+        ref = dv.get(n, 1)
+        bad_score += min(100, (val / ref) * 100)
+
+    return good_score - bad_score
+
+
+
+
+# %%
+import os
+
+# Get the directory of the current file (env.py)
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))  
+
+# Construct path to data/sales.csv
+DATA_PATH = os.path.join(BASE_DIR, "data", "sales.csv")
+
+data = load_data(DATA_PATH)
+
+print(data.head())
+
+features = get_features(data)
+print("Features shape:", features.shape)
+
+actions = get_actions(data)
+print("Unique actions:", actions)  # show first 10 actions
+
+# %%
+num_actions = len(actions)
+print("Number of unique actions:", num_actions)
+
+#%%
+output_file = "scored_data.csv"
+df=data.copy()
+# Compute health score
+df["HealthScore"] = df.apply(health_score, axis=1)
+# Save results
+df.to_csv(output_file, index=False)
+print(f"✅ Health scores calculated and saved to {output_file}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# %%
+"""def health_score(row, min_score=None, max_score=None):
+    # Daily Values (DV) per school group
+    DV = {
+        "elementary": {
+            "Calories": 1600, "Protein": 19, "Total Carbohydrate": 130,
+            "Dietary Fiber": 25, "Added Sugars": 25, "Total Fat": 40,
+            "Saturated Fat": 20, "Sodium": 1500, "Vitamin D": 20,
+            "Calcium": 1000, "Iron": 10, "Potassium": 4700,
+            "Vitamin A": 900, "Vitamin C": 90
+        },
+        "middle": {
+            "Calories": 2200, "Protein": 34, "Total Carbohydrate": 130,
+            "Dietary Fiber": 31, "Added Sugars": 50, "Total Fat": 77,
+            "Saturated Fat": 20, "Sodium": 2300, "Vitamin D": 20,
+            "Calcium": 1300, "Iron": 18, "Potassium": 4700,
+            "Vitamin A": 900, "Vitamin C": 90
+        },
+        "high": {
+            "Calories": 2600, "Protein": 46, "Total Carbohydrate": 130,
+            "Dietary Fiber": 38, "Added Sugars": 50, "Total Fat": 91,
+            "Saturated Fat": 20, "Sodium": 2300, "Vitamin D": 20,
+            "Calcium": 1300, "Iron": 18, "Potassium": 4700,
+            "Vitamin A": 900, "Vitamin C": 90
+        }
+    }
+
+    GOOD = ["Protein", "Dietary Fiber", "Vitamin D", "Calcium",
+            "Iron", "Potassium", "Vitamin A", "Vitamin C"]
+    BAD = ["Added Sugars", "Saturated Fat", "Sodium"]
+
+    school_group = str(row.get("school_group", "high")).lower()
+    if "elementary" in school_group:
+        dv = DV["elementary"]
+    elif "middle" in school_group:
+        dv = DV["middle"]
+    else:
+        dv = DV["high"]
+
+    good_score = 0
+    bad_score = 0
+
+    for n in GOOD:
+        val = row.get(n, 0) or 0
+        ref = dv.get(n, 1)
+        good_score += min(100, (val / ref) * 100)
+
+    for n in BAD:
+        val = row.get(n, 0) or 0
+        ref = dv.get(n, 1)
+        bad_score += min(100, (val / ref) * 100)
+
+    raw_score = good_score - bad_score
+
+    # If min/max scores are not provided, use default range
+    if min_score is None:
+        min_score = -300  # worst case negative score
+    if max_score is None:
+        max_score = 800   # approximate best-case total for good nutrients
+
+    # Scale to 0-10 range
+    scaled_score = 10 * (raw_score - min_score) / (max_score - min_score)
+    scaled_score = max(0, min(10, scaled_score))  # clamp to [0,10]
+
+    return round(scaled_score, 1)
+"""
