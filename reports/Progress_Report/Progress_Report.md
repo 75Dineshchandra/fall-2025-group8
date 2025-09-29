@@ -4,6 +4,7 @@ Note: Use Markdown Cheat Sheet download in the directory as needed.
   - https://github.com/im-luka/markdown-cheatsheet
 
 ---
+<<<<<<< HEAD
 ## Date: Week 1 - Sep 10, 2025 
 - Topics of discussion  
     - Studied Reinforcement Learning framework with emphasis on Contextual Multi-Armed Bandits (CMAB).  
@@ -11,9 +12,16 @@ Note: Use Markdown Cheat Sheet download in the directory as needed.
     - Defined reward structure combining popularity and health score with weighting λ.  
     - Outlined cradle-to-launch roadmap for data ingestion → feature engineering → bandit modeling → evaluation.  
     - Reviewed Fairfax County Public Schools (FCPS) dataset schema and structure. 
+=======
+## Date: Week 1 & 2- 09 - 16 - 2025 
+- Topics of discussion
+    - read the notes 
+    - prepping code and repo
+>>>>>>> origin/main
 
 - Action Items:  
 
+<<<<<<< HEAD
 * [x] Created repository (`fall-2025-group8`) and set up folder structure.  
 * [x] Added `amir-capstone-jafari` as collaborator.  
 * [x] Created GitHub Project Board with Kanban workflow.  
@@ -135,6 +143,11 @@ graph TD;
     C --> E[Bandit Model: ε-Greedy, LinUCB]
     D --> E
     E --> F[Reward Function r_t]
+=======
+* [ Done] read the notes 
+* [Done ] prepping code and repo
+
+>>>>>>> origin/main
 ---
 ## Date: Week 3 - Month Day Year 
 - Topics of discussion
