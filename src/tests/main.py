@@ -1,43 +1,49 @@
-#%%
-# --- add these two lines first ---
-import sys, pathlib
-sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))  # adds /.../src to sys.path
+# main.py
+import os
+import numpy as np
+import pandas as pd
 
-# --- make all three imports consistent ---
-from Components.model import EpsilonGreedy
-from Components.env import *
-from Components.plot import *
+from Components.env import load_data, health_score, build_action_matrix, build_feature_matrix
+from Components.model import train_linucb, evaluate
+import Components.plot as plot
 
-import warnings
+if __name__ == "__main__":
+    # ---------- Load data ----------
+    DATA_PATH = os.path.join("data", "sales.csv")
+    df = load_data(DATA_PATH)
+    print("✅ Data loaded:", df.shape)
 
-warnings.filterwarnings("ignore")
+    # ---------- Add health score ----------
+    df["HealthScore"] = df.apply(health_score, axis=1)
 
-environment = "bernoulli"
-n_arms = 2
-arm_means = [[0.9, 0.1],[0.1, 0.9]]
-obs = 500
-random_seed = 123
-epsilon = 0.3
+    # ---------- Build matrices ----------
+    action_matrix, all_items, item_to_idx = build_action_matrix(df, item_col="description")
+    X_all, feature_names, rows_df, groups, meta = build_feature_matrix(df, item_col="description")
 
-data = create_environment(env = environment,
-                          n_arms = n_arms,
-                          arm_means = arm_means, 
-                          observations = obs, 
-                          random_seed = random_seed)
+    # Reward definition: here we use health score
+    rewards = df["HealthScore"].to_numpy()
 
-model = EpsilonGreedy(n_arms = n_arms, epsilon = epsilon, random_seed=random_seed)
+    # ---------- Train model ----------
+    agent, actions_taken, rewards_received = train_linucb(
+        X_all, groups, rewards, alpha=1.0
+    )
 
-table, rewards, matrix = model.train(data)
+    # ---------- Evaluate ----------
+    metrics = evaluate(actions_taken, rewards_received)
+    print("📊 Evaluation:", metrics)
 
-violinplot_environment(data, arm_means)
-
-data_average_plot(data, arm_means)
-
-data_cumulative_plot(data, arm_means)
-
-model_average_plot(data, rewards, matrix, arm_means)
-
-model_cumulative_plot(data, rewards, matrix, arm_means)
-
-param = model.save()
-# %%
+    # ---------- Plots ----------
+    plot.model_average_plot(
+        data=None, 
+        rewards=np.array(rewards_received), 
+        action_matrix=action_matrix, 
+        arm_means=[df.groupby("description")["HealthScore"].mean().to_numpy()],
+        top=5
+    )
+    plot.model_cumulative_plot(
+        data=None,
+        rewards=np.array(rewards_received),
+        action_matrix=action_matrix,
+        arm_means=[df.groupby("description")["HealthScore"].mean().to_numpy()],
+        top=5
+    )

@@ -1,101 +1,103 @@
-#%%
+# model.py
 import numpy as np
-import pandas as pd
+from typing import Dict, List, Tuple
 
-class EpsilonGreedy:
-    """    Implementation of the Epsilon-Greedy algorithm for multi-armed bandits.
-
-    Parameters:
-    - n_arms (int): The number of arms in the bandit.
-    - epsilon (float): Exploration-exploitation trade-off parameter (default is 0).
-    - manual_prior (tuple): Tuple containing the initial values for Q (action-value estimates) and N (action counts).
-      If None, default values of 0 are used for Q and N.
-    - random_seed (int): Seed for the random number generator (default is None).
-
-    Methods:
-    - bandit(data, A, t): Simulates pulling an arm and returns the corresponding reward.
-    - action(): Chooses an action based on the Epsilon-Greedy strategy.
-    - update(A, R): Updates action-value estimates and action counts based on the received reward.
-    - train(data): Trains the Epsilon-Greedy algorithm on a given dataset.
-    - create_table(): Generates a table with information about arms, action counts, and estimated rewards.
-    - save(): Saves the current state of action-value estimates and action counts to a DataFrame.
-    - recommend(): Recommends an action based on the current estimates (for exploration).
-    - reset(): Resets the action-value estimates and action counts to zeros.
-
-    Attributes:
-    - n_arms (int): The number of arms in the bandit.
-    - epsilon (float): Exploration-exploitation trade-off parameter.
-    - Q (numpy.ndarray): Action-value estimates for each arm.
-    - N (numpy.ndarray): Action counts for each arm.
-    - rewards_list (list): List to store received rewards during training.
-    - rewards_matrix (numpy.ndarray): Matrix to store rewards for each arm at each time step.
+class LinUCB:
     """
+    Linear UCB contextual bandit implementation.
+    """
+    def __init__(self, n_arms: int, n_features: int, alpha: float = 1.0):
+        self.n_arms = n_arms
+        self.n_features = n_features
+        self.alpha = alpha
 
-    def __init__(self, n_arms, epsilon = 0, manual_prior = None, random_seed = None):
-        np.random.seed(random_seed)
-        self.n_arms = n_arms  
-        if manual_prior:
-            self.Q = np.ones((n_arms,1)) * manual_prior[0]
-            self.N = np.ones((n_arms,1)) * manual_prior[1]
-        else:
-            self.Q = np.zeros((n_arms, 1))
-            self.N = np.zeros((n_arms, 1))
-        self.epsilon = epsilon
-        self.rewards_list = []
-        self.rewards_matrix = np.zeros((1, n_arms))
+        # For each arm: A = dxd identity, b = dx1 zero
+        self.A = [np.identity(n_features) for _ in range(n_arms)]
+        self.b = [np.zeros((n_features, 1)) for _ in range(n_arms)]
 
-    def bandit(self, data, A, t):
+    def select_arm(self, x: np.ndarray) -> int:
         """
-        The function bandit() is assumed to take an action and return a corresponding reward.
+        Select arm using LinUCB rule.
+        Args:
+            x: context vector (d,)
+        Returns:
+            chosen arm index
         """
-        rewards_pull = data.copy()[t:t+1][0] 
-        R = rewards_pull[A] 
-        rewards_pull[:A] = 0
-        rewards_pull[A+1:] = 0
-        self.rewards_matrix = np.vstack([self.rewards_matrix, rewards_pull.reshape((1,-1))]) 
-        self.rewards_list.append(R) 
-        
-        return R
+        x = x.reshape(-1, 1)
+        p = np.zeros(self.n_arms)
 
-    def action(self):
-        if np.random.uniform(0, 1) <= self.epsilon: 
-            # Action - exploring
-            return np.random.randint(0, self.n_arms)
-        else:
-            # Action - exploiting
-            return np.argmax(self.Q)
-    
-    def update(self, A, R):
-        self.N[A] += 1 
-        self.Q[A] += (1 / self.N[A]) * (R - self.Q[A]) 
-    
-    def train(self, data):
+        for a in range(self.n_arms):
+            A_inv = np.linalg.inv(self.A[a])
+            theta = A_inv @ self.b[a]
+            mean = float(theta.T @ x)
+            var = float(self.alpha * np.sqrt(x.T @ A_inv @ x))
+            p[a] = mean + var
 
-        for t in range(len(data)):
-            
-            A = self.action()
-            
-            R = self.bandit(data, A, t)
-            
-            self.update(A, R)
+        return int(np.argmax(p))
 
-        table = self.create_table()
-        
-        return table, self.rewards_list, self.rewards_matrix[1:,:]
-    
-    def create_table(self):
-        table = np.hstack([np.arange(1, self.n_arms + 1).reshape(self.n_arms, 1),
-                           self.N, self.Q.round(2)]).astype(float)
-        table = pd.DataFrame(data=table, columns=["Arms", "Arm Selection", "E(reward|action)"])
-        table = table.to_string(index=False)
-        return table
-    
-    def save(self):
-        df = pd.DataFrame({"N": self.N.flatten(), 'Q': self.Q.flatten()})
-        return df
+    def update(self, chosen_arm: int, reward: float, x: np.ndarray):
+        """
+        Update A and b for chosen arm.
+        """
+        x = x.reshape(-1, 1)
+        self.A[chosen_arm] += x @ x.T
+        self.b[chosen_arm] += reward * x
 
-    def reset(self):
-        self.Q = np.zeros((self.n_arms, 1))
-        self.N = np.zeros((self.n_arms, 1))
-        self.rewards_list = []
-        self.rewards_matrix = np.zeros((1, self.n_arms))
+# ===================== Training =====================
+
+def train_linucb(
+    X_all: np.ndarray,
+    groups: Dict[int, np.ndarray],
+    rewards: np.ndarray,
+    alpha: float = 1.0
+) -> Tuple[LinUCB, List[int], List[float]]:
+    """
+    Train LinUCB on provided dataset.
+    
+    Args:
+        X_all: feature matrix (n_samples, n_features)
+        groups: mapping t -> indices of actions available at time t
+        rewards: reward array (n_samples,)
+        alpha: exploration parameter
+    
+    Returns:
+        (trained agent, actions taken, rewards received)
+    """
+    n_features = X_all.shape[1]
+    n_arms = len(np.unique([idx for arr in groups.values() for idx in arr]))
+
+    agent = LinUCB(n_arms=n_arms, n_features=n_features, alpha=alpha)
+    actions_taken, rewards_received = [], []
+
+    for t, indices in sorted(groups.items()):
+        # choose arm from available options
+        arm_scores = {}
+        for idx in indices:
+            x = X_all[idx]
+            arm_scores[idx] = agent.select_arm(x)
+
+        # map local choice to dataset index
+        chosen_idx = np.random.choice(indices)
+        chosen_arm = agent.select_arm(X_all[chosen_idx])
+
+        reward = rewards[chosen_idx]
+
+        # update agent
+        agent.update(chosen_arm, reward, X_all[chosen_idx])
+
+        actions_taken.append(chosen_arm)
+        rewards_received.append(reward)
+
+    return agent, actions_taken, rewards_received
+
+# ===================== Evaluation =====================
+
+def evaluate(actions: List[int], rewards: List[float]) -> Dict[str, float]:
+    """
+    Simple evaluation metrics.
+    """
+    return {
+        "total_reward": float(np.sum(rewards)),
+        "avg_reward": float(np.mean(rewards)),
+        "n_actions": len(actions)
+    }
