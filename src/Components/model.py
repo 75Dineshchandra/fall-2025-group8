@@ -53,13 +53,13 @@ def train_linucb(
 ) -> Tuple[LinUCB, List[int], List[float]]:
     """
     Train LinUCB on provided dataset.
-    
+
     Args:
         X_all: feature matrix (n_samples, n_features)
         groups: mapping t -> indices of actions available at time t
         rewards: reward array (n_samples,)
         alpha: exploration parameter
-    
+
     Returns:
         (trained agent, actions taken, rewards received)
     """
@@ -70,15 +70,14 @@ def train_linucb(
     actions_taken, rewards_received = [], []
 
     for t, indices in sorted(groups.items()):
-        # choose arm from available options
-        arm_scores = {}
+        # select the best arm from available options
+        scores = {}
         for idx in indices:
             x = X_all[idx]
-            arm_scores[idx] = agent.select_arm(x)
+            scores[idx] = agent.select_arm(x)
 
-        # map local choice to dataset index
-        chosen_idx = np.random.choice(indices)
-        chosen_arm = agent.select_arm(X_all[chosen_idx])
+        chosen_idx = max(scores, key=scores.get)  # use LinUCB rule
+        chosen_arm = scores[chosen_idx]
 
         reward = rewards[chosen_idx]
 
@@ -89,6 +88,8 @@ def train_linucb(
         rewards_received.append(reward)
 
     return agent, actions_taken, rewards_received
+
+
 
 # ===================== Evaluation =====================
 
