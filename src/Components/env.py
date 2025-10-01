@@ -14,7 +14,7 @@ def load_data(file_path: str) -> pd.DataFrame:
 
 # ===================== Actions & Features (simple) =====================
 
-def get_actions(data: pd.DataFrame) -> np.ndarray:
+#def get_actions(data: pd.DataFrame) -> np.ndarray:
     """
     Return unique actions from either 'sales_item' or 'description'.
     """
@@ -24,7 +24,7 @@ def get_actions(data: pd.DataFrame) -> np.ndarray:
         raise KeyError("Neither 'sales_item' nor 'description' column was found.")
     return data[col].astype(str).unique()
 
-def get_features(data: pd.DataFrame) -> pd.DataFrame:
+#def get_features(data: pd.DataFrame) -> pd.DataFrame:
     """
     Return the feature frame (kept simple here: returns the input df).
     """
@@ -250,12 +250,12 @@ if __name__ == "__main__":
     data = load_data(DATA_PATH)
     print(data.head())
 
-    features = get_features(data)
-    print("Features shape:", features.shape)
+    #features = get_features(data)
+    #print("Features shape:", features.shape)
 
-    actions = get_actions(data)
-    print("Unique actions:", actions)
-    print("Number of unique actions:", len(actions))
+    #actions = get_actions(data)
+    #print("Unique actions:", actions)
+    #print("Number of unique actions:", len(actions))
 
     # Compute and save health scores
     df = data.copy()
@@ -266,7 +266,7 @@ if __name__ == "__main__":
 
     # ---------- Optional: build action/feature matrices if columns exist ----------
     # Prepare dataframe expected by the matrix builders
-    merged = data.copy()
+    merged = pd.read_csv("/Users/ganeshkumarboini/Documents/testrepo/fall-2025-group8/src/data/data_with_timestamps.csv")
     if "sales_item" in merged.columns and "description" not in merged.columns:
         merged = merged.rename(columns={"sales_item": "description"})
 
