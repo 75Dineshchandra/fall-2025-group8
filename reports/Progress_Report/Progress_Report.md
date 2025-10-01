@@ -149,20 +149,49 @@ graph TD;
 
 >>>>>>> origin/main
 ---
-## Date: Week 3 - Month Day Year 
+## Date: Week 3 - 09/24 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+   - Built the complete LinUCB contextual bandit model with all core components
+   - Implemented the full CMAB framework: initialization, action selection, reward calculation, and training loop
+   - Successfully tested the model with synthetic data - all components working perfectly
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
----
+* [ x] Implemented complete LinUCB class in src/components/model.py
+
+* [x ] Built all core methods: __init__(), action(), calculate_reward(), update(), train()
+* [x ] Added utility methods: recommend(), save(), load(), reset()
+* [x ] created Sudo Code for main.py
+* [ ] Verified action masking - only recommends available foods
+
+''
+
+python code :
+
+class LinUCB:
+    def __init__(self, n_arms, context_dim, alpha=1.0, lambda_reg=1.0)
+    def action(self, context, available_actions=None)
+    def calculate_reward(self, chosen_food, sales_count, health_score, lambda_param=0.5)
+    def update(self, context, action, reward)
+    def train(self, contexts, available_actions_list, sales_data, health_scores)
+    def recommend(self, context, available_actions, top_k=3)
+
+
+Smart Food Selection with Masking : 
+
+python :
+# Robot chef only considers available foods!
+available_foods = [1, 0, 1, 1, 0]  
+
+Balanced Reward System
+
+python :
+# reward = popularity + λ * healthiness
+reward = sales_count + 0.5 * health_score
+# Test result: Sales=75, Health=80 → Reward=99.00 
+
+''
+
 ## Date: Week 4 - Month Day Year 
 - Topics of discussion
     - Item1
