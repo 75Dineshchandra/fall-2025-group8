@@ -1,3 +1,5 @@
+
+
 #%%
 
 import pandas as pd
@@ -5,18 +7,38 @@ import numpy as np
 import re
 from pathlib import Path
 
-# ---------- INPUTS ----------
-sales_path = "/Users/sirishag/Documents/fall-2025-group8/src/data/sales.csv"
-nutr_path  = "/Users/sirishag/Documents/fall-2025-group8/src/data/nutrition items.csv"
+# ---------- PATHS ----------
+script_dir = Path(__file__).parent
+sales_path = script_dir / "sales.csv"
+nutr_path = script_dir / "nutrition items.csv"
 
-# ---------- LOAD ----------
-sales = pd.read_csv(sales_path)
-nutr  = pd.read_csv(nutr_path)
+# ---------- LOAD WITH PROPER COLUMN HANDLING ----------
+# Load sales data with dtype specification to handle mixed types
+sales = pd.read_csv(sales_path, low_memory=False)
+
+# Check what column contains the item descriptions
+# Common column names for food items:
+possible_desc_columns = ['description', 'Description', 'DESCRIPTION', 'item', 'Item', 'ITEM', 
+                        'product', 'Product', 'PRODUCT', 'name', 'Name', 'NAME', 'menu_item', 'Menu_Item']
+
+# Find which column exists
+desc_column = None
+for col in possible_desc_columns:
+    if col in sales.columns:
+        desc_column = col
+        break
+
+if desc_column is None:
+    print(f"Available columns in sales data: {list(sales.columns)}")
+    raise KeyError("Could not find description column. Please specify which column contains food item names.")
+
+print(f"Using column '{desc_column}' for food item descriptions")
+
+# Load nutrition data
+nutr = pd.read_csv(nutr_path)
 
 # ---------- CLEAN NUTRITION HEADERS / DROP UNIT COLUMNS ----------
-# strip accidental whitespace (handles "Added Sugars   " etc.)
 nutr.columns = nutr.columns.str.strip()
-# drop all "*_Unit" columns (we only aggregate numeric values)
 nutr = nutr.drop(columns=[c for c in nutr.columns if c.endswith("_Unit")], errors="ignore")
 
 # ---------- NORMALIZATION ----------
@@ -24,13 +46,14 @@ def norm(s: str) -> str:
     if pd.isna(s): return ""
     s = str(s).lower()
     s = s.replace("&", " and ")
-    s = re.sub(r"\bw\/\b", " with ", s)   # "w/" -> "with"
-    s = re.sub(r"\/", " ", s)             # slashes -> space
-    s = re.sub(r"[^a-z0-9\s%+]", " ", s)  # drop punctuation but keep %, +
+    s = re.sub(r"\bw\/\b", " with ", s)
+    s = re.sub(r"\/", " ", s)
+    s = re.sub(r"[^a-z0-9\s%+]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
-sales["description"] = sales["description"].astype(str).fillna("").str.strip()
+# Use the correct column name for descriptions
+sales[desc_column] = sales[desc_column].astype(str).fillna("").str.strip()
 
 # ---------- CATEGORY RULES ----------
 CATEGORY_RULES = {
@@ -61,27 +84,25 @@ def tag_categories(text: str) -> set:
     return cats or {"uncategorized"}
 
 # ---------- PREP NUTRITION TABLE ----------
-# sanity: minimal required columns
 must_have = ["RecipeName", "Calories", "Protein"]
 missing = [c for c in must_have if c not in nutr.columns]
 if missing:
-    raise ValueError(f"Nutrition CSV missing columns: {missing}")
+    print(f"Nutrition CSV missing columns: {missing}")
+    print(f"Available nutrition columns: {list(nutr.columns)}")
+    raise ValueError(f"Nutrition CSV missing required columns: {missing}")
 
 nutr = nutr.copy()
-nutr["name_norm"]  = nutr["RecipeName"].apply(norm)
+nutr["name_norm"] = nutr["RecipeName"].apply(norm)
 nutr["categories"] = nutr["RecipeName"].apply(tag_categories)
-nutr["token_set"]  = nutr["name_norm"].str.split().apply(set)
+nutr["token_set"] = nutr["name_norm"].str.split().apply(set)
 
-# numeric nutrient columns = all numeric except these:
+# numeric nutrient columns
 exclude_cols = {"RecipeID","RecipeName","ServingSize","ItemID","name_norm","categories","token_set",
                 "SchoolID","SchoolName","DistrictID","DistrictName","Month","MonthNumber","Year",
                 "StartDate","EndDate","Date","MealTime","MenuPlan","MealCategory","FoodCategory",
                 "HasNutrients","Allergens","DietaryRestrictions","ReligiousRestrictions"}
 num_cols = [c for c in nutr.columns if c not in exclude_cols and pd.api.types.is_numeric_dtype(nutr[c])]
-if not num_cols:
-    raise ValueError("No numeric nutrient columns detected. Check your CSV headers and types.")
 
-# preferred output order (only those that exist), then any extra numeric cols
 preferred_order = [
     "GramsPerServing",
     "Calories","Protein",
@@ -92,24 +113,21 @@ preferred_order = [
 ]
 ordered_cols = [c for c in preferred_order if c in num_cols] + [c for c in num_cols if c not in preferred_order]
 
-# ---------- SCORING (VECTORIZED) ----------
+# ---------- SCORING ----------
 def candidates_for_sales_item(sales_item: str) -> pd.DataFrame:
     cats = tag_categories(sales_item)
-    # category block
     if cats == {"uncategorized"}:
         pool = nutr
     else:
         pool = nutr[nutr["categories"].apply(lambda c: len(c & cats) > 0)]
         if len(pool) < 3:
-            pool = nutr  # fallback if block too small
+            pool = nutr
 
     s_norm = norm(sales_item)
     stoks = set(s_norm.split())
 
-    # token overlap
     overlap = pool["token_set"].apply(lambda ts: len(ts & stoks))
 
-    # substring bonus for longer tokens
     long_tokens = [t for t in stoks if len(t) > 3]
     if long_tokens:
         regex = "|".join(map(re.escape, long_tokens))
@@ -117,7 +135,6 @@ def candidates_for_sales_item(sales_item: str) -> pd.DataFrame:
     else:
         substr_bonus = pd.Series(False, index=pool.index)
 
-    # category alignment
     cat_align = pool["categories"].apply(lambda c: len(c & cats))
 
     score = overlap + (2 * substr_bonus.astype(int)) + 0.5 * cat_align
@@ -147,18 +164,36 @@ def sum_numeric(df: pd.DataFrame) -> pd.Series:
     return df[ordered_cols].sum(numeric_only=True).reindex(ordered_cols)
 
 # ---------- UNIQUE SALES ITEMS ----------
+# Find which column contains the quantity/total
+possible_total_columns = ['total', 'Total', 'TOTAL', 'quantity', 'Quantity', 'QUANTITY', 
+                         'count', 'Count', 'COUNT', 'qty', 'Qty', 'QTY']
+
+total_column = None
+for col in possible_total_columns:
+    if col in sales.columns:
+        total_column = col
+        break
+
+if total_column is None:
+    print(f"Available columns for quantity: {list(sales.columns)}")
+    # If no quantity column found, assume each row is 1
+    sales['quantity'] = 1
+    total_column = 'quantity'
+    print("No quantity column found. Using default quantity=1 for all items.")
+
+print(f"Using column '{total_column}' for quantities")
+
 unique_sales_items = (
-    sales.groupby("description", as_index=False)["total"].sum()
-         .rename(columns={"description":"sales_item","total":"sales_volume"})
+    sales.groupby(desc_column, as_index=False)[total_column].sum()
+         .rename(columns={desc_column: "sales_item", total_column: "sales_volume"})
 )
 
 # ---------- MAIN LOOP ----------
 records = []
 for _, row in unique_sales_items.iterrows():
     sales_item = row["sales_item"]
-    volume     = row["sales_volume"]
+    volume = row["sales_volume"]
 
-    # composites first (e.g., "bagel with cream cheese")
     comps = split_components(sales_item)
     if comps:
         comp_best, comp_names = [], []
@@ -182,9 +217,7 @@ for _, row in unique_sales_items.iterrows():
             records.append(rec)
             continue
 
-    # non-composite: median over top-K
     cand = candidates_for_sales_item(sales_item).head(5)
-    # cereal bucket: restrict to cereals & top 3
     if "cereal" in tag_categories(sales_item):
         cand = cand[cand["categories"].apply(lambda s: "cereal" in s)].head(3)
     agg = aggregate_numeric(cand, method="median")
@@ -201,14 +234,13 @@ for _, row in unique_sales_items.iterrows():
 
 full_map = pd.DataFrame(records)
 
-# ---------- COVERAGE GUARANTEE ----------
+# ---------- OUTPUT ----------
 assert set(full_map["sales_item"]) == set(unique_sales_items["sales_item"]), "Some sales items were missed."
-
 
 full_map = full_map[["sales_item","mapped_items"] + ordered_cols + ["method","n_candidates","sales_volume"]]\
                  .sort_values("sales_volume", ascending=False)
 
-out_dir = Path("/Users/sirishag/Documents/fall-2025-group8/src/data")
+out_dir = script_dir
 csv_full = out_dir / "sales_to_nutrition_mapping_FULL.csv"
 xlsx_full = out_dir / "sales_to_nutrition_mapping_FULL.xlsx"
 csv_slim = out_dir / "sales_to_nutrition_mapping_SLIM.csv"
@@ -219,7 +251,6 @@ try:
 except Exception as e:
     print("Excel export skipped:", e)
 
-# optional slim, like your example
 slim = full_map[["sales_item","mapped_items","Calories","Protein","Total Sugars"]]
 slim.to_csv(csv_slim, index=False)
 
@@ -227,7 +258,4 @@ print("Done.")
 print("Full mapping ->", csv_full)
 print("Slim mapping ->", csv_slim)
 print(full_map[["sales_item","mapped_items","Calories","Protein","Total Sugars","Total Fat","Saturated Fat","Sodium"]].head(20).to_string(index=False))
-
-
-
 # %%
