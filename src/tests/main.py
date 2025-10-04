@@ -1,161 +1,226 @@
-# main.py - COMPLETE FCPS INTEGRATION
+#%%
 import sys
-import pathlib
+import os
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import os
+from typing import List, Dict, Tuple
 
-# Add project root to Python path
-project_root = pathlib.Path(__file__).resolve().parents[0]
-sys.path.append(str(project_root))
+# Add the parent directory to Python path to allow imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+project_root = os.path.dirname(parent_dir)
+sys.path.insert(0, project_root)
 
-from src.components.model import LinUCB
+# Now import the model - use relative import
+# Change this line in src/components/main.py:
+# from src.components.model import LinUCB
+
+# To this (relative import):
+from ..Components.model import LinUCB
 
 class FCPSDataLoader:
-    """Load and prepare FCPS data for training"""
+    """Load and prepare FCPS data for training with correct paths"""
     
-    def __init__(self, data_dir="src/data"):
+    def __init__(self, data_dir: str = "../data"):
         self.data_dir = data_dir
         self.action_matrix = None
         self.feature_matrix = None
-        self.time_slots_info = None
         self.sales_data = None
         self.health_scores = None
+        self.item_mapping = None
         
-    def load_all_data(self):
-        """Load all FCPS data files"""
+    def load_all_data(self) -> bool:
+        """Load all FCPS data files with correct paths"""
         print("📊 Loading FCPS data files...")
         
-        # 1. Load Action Matrix (food availability)
-        action_path = os.path.join(self.data_dir, "action_matrix.csv")
-        self.action_matrix = pd.read_csv(action_path)
-        print(f"   ✅ Action Matrix: {self.action_matrix.shape}")
-        
-        # 2. Load Feature Matrix (nutritional features)
-        feature_path = os.path.join(self.data_dir, "feature_matrix.csv")
-        self.feature_matrix = pd.read_csv(feature_path)
-        print(f"   ✅ Feature Matrix: {self.feature_matrix.shape}")
-        
-        # 3. Load Time Slots Info
-        time_slots_path = os.path.join(self.data_dir, "time_slots_info.csv")
-        self.time_slots_info = pd.read_csv(time_slots_path)
-        print(f"   ✅ Time Slots: {len(self.time_slots_info)} periods")
-        
-        # 4. Load Sales Data (from original CSV)
-        sales_path = os.path.join(self.data_dir, "sales.csv")
-        sales_raw = pd.read_csv(sales_path)
-        print(f"   ✅ Raw Sales: {len(sales_raw)} records")
-        
-        return True
+        try:
+            # Define correct paths based on your project structure
+            data_path = os.path.join(os.path.dirname(__file__), self.data_dir)
+            
+            # 1. Load Action Matrix
+            action_path = os.path.join(data_path, "action_matrix.csv")
+            if os.path.exists(action_path):
+                self.action_matrix = pd.read_csv(action_path)
+                print(f"   ✅ Action Matrix: {self.action_matrix.shape}")
+            else:
+                print(f"   ❌ Action matrix not found at {action_path}")
+                return False
+            
+            # 2. Load Feature Matrix
+            feature_path = os.path.join(data_path, "feature_matrix.csv")
+            if os.path.exists(feature_path):
+                self.feature_matrix = pd.read_csv(feature_path)
+                print(f"   ✅ Feature Matrix: {self.feature_matrix.shape}")
+            else:
+                print(f"   ❌ Feature matrix not found at {feature_path}")
+                return False
+            
+            # 3. Load Sales Data
+            sales_path = os.path.join(data_path, "sales.csv")
+            if os.path.exists(sales_path):
+                self.sales_data = pd.read_csv(sales_path)
+                print(f"   ✅ Sales Data: {len(self.sales_data)} records")
+            else:
+                print(f"   ❌ Sales data not found at {sales_path}")
+                return False
+            
+            # 4. Load or Create Item Mapping
+            mapping_path = os.path.join(data_path, "item_mapping.csv")
+            if os.path.exists(mapping_path):
+                mapping_df = pd.read_csv(mapping_path)
+                self.item_mapping = dict(zip(mapping_df['item'], mapping_df['item_idx']))
+                print(f"   ✅ Item Mapping: {len(self.item_mapping)} items")
+            else:
+                print("   ⚠️  Item mapping not found, creating from sales data...")
+                self._create_item_mapping()
+                # Save the mapping for future use
+                mapping_df = pd.DataFrame({
+                    'item': list(self.item_mapping.keys()),
+                    'item_idx': list(self.item_mapping.values())
+                })
+                mapping_df.to_csv(mapping_path, index=False)
+                print(f"   ✅ Created and saved item mapping with {len(self.item_mapping)} items")
+            
+            return True
+            
+        except Exception as e:
+            print(f"   ❌ Error loading data: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
     
-    def prepare_training_data(self, max_time_slots=50):
+    def _create_item_mapping(self):
+        """Create item mapping from sales data"""
+        unique_items = sorted(self.sales_data['description'].astype(str).unique())
+        self.item_mapping = {item: idx for idx, item in enumerate(unique_items)}
+    
+    def prepare_training_data(self, max_time_slots: int = 50) -> Tuple[List[np.ndarray], List[np.ndarray], List[int]]:
         """Prepare data for LinUCB training"""
         print("\n🎯 Preparing training data...")
         
-        # Extract contexts and available actions
+        if self.feature_matrix is None or self.action_matrix is None:
+            raise ValueError("Data not loaded. Call load_all_data() first.")
+        
         contexts_list = []
         available_actions_list = []
         
-        # Get unique time slots
+        # Get unique time slots from feature matrix
         time_slots = sorted(self.feature_matrix['time_slot_id'].unique())
         time_slots = time_slots[:max_time_slots]  # Limit for testing
+        
+        print(f"   Processing {len(time_slots)} time slots...")
         
         for t in time_slots:
             # Get features for this time slot
             slot_features = self.feature_matrix[self.feature_matrix['time_slot_id'] == t]
             if len(slot_features) > 0:
-                # Use first food's features as context (they represent the time slot)
-                context = slot_features.iloc[0, 3:].values  # Skip meta columns
-                contexts_list.append(context)
+                # Use nutritional features (skip meta columns)
+                feature_cols = [col for col in slot_features.columns 
+                               if col not in ['time_slot_id', 'item', 'item_idx']]
+                if len(feature_cols) > 0:
+                    context = slot_features.iloc[0][feature_cols].values.astype(float)
+                    contexts_list.append(context)
             
             # Get available actions for this time slot
             slot_actions = self.action_matrix[self.action_matrix['time_slot_id'] == t]
             if len(slot_actions) > 0:
-                available_actions = slot_actions.iloc[0, 1:].values  # Skip time_slot_id column
+                # Skip time_slot_id column, get all item columns
+                action_cols = [col for col in slot_actions.columns if col != 'time_slot_id']
+                available_actions = slot_actions.iloc[0][action_cols].values.astype(int)
                 available_actions_list.append(available_actions)
         
-        print(f"   Prepared {len(contexts_list)} training sequences")
+        print(f"   ✅ Prepared {len(contexts_list)} training sequences")
+        print(f"   ✅ Context dimension: {contexts_list[0].shape[0] if contexts_list else 0}")
+        
         return contexts_list, available_actions_list, time_slots
     
-    def extract_sales_and_health_data(self):
+    def extract_sales_and_health_data(self) -> Tuple[List[np.ndarray], Dict[int, float]]:
         """Extract actual sales counts and health scores"""
         print("\n📈 Extracting sales and health data...")
         
-        # Load original sales data to get actual sales counts
-        sales_path = os.path.join(self.data_dir, "sales.csv")
-        sales_df = pd.read_csv(sales_path)
+        if self.sales_data is None:
+            raise ValueError("Sales data not loaded.")
+        
+        n_items = len(self.item_mapping)
         
         # Create sales matrix: time_slot_id x item_idx -> sales_count
-        sales_matrix = {}
+        unique_time_slots = sorted(self.sales_data['time_slot_id'].unique())
+        
+        sales_data_list = []
         health_scores_dict = {}
         
-        # Group by time_slot_id and item
-        for time_slot in sales_df['time_slot_id'].unique():
-            slot_data = sales_df[sales_df['time_slot_id'] == time_slot]
-            sales_matrix[time_slot] = {}
+        # Initialize health scores with defaults
+        for item_idx in range(n_items):
+            health_scores_dict[item_idx] = 3.5  # Default health score
+        
+        # Extract actual health scores from data
+        if 'HealthScore' in self.sales_data.columns:
+            health_data = self.sales_data[['description', 'HealthScore']].drop_duplicates()
+            for _, row in health_data.iterrows():
+                item_desc = str(row['description'])
+                if item_desc in self.item_mapping:
+                    item_idx = self.item_mapping[item_desc]
+                    health_scores_dict[item_idx] = float(row['HealthScore'])
+        
+        # Create sales vectors for each time slot
+        for time_slot in unique_time_slots:
+            slot_data = self.sales_data[self.sales_data['time_slot_id'] == time_slot]
+            sales_vector = np.zeros(n_items)
             
             for _, row in slot_data.iterrows():
-                # Find item index (you'll need to map description to item_idx)
-                item_desc = row['description']
-                # This mapping should come from your item_mapping.csv
-                # For now, we'll simulate
-                item_idx = hash(item_desc) % 160  # Temporary - replace with actual mapping
-                
-                sales_count = row['total']  # Actual sales count
-                health_score = row['HealthScore']  # Health score from data
-                
-                sales_matrix[time_slot][item_idx] = sales_count
-                health_scores_dict[item_idx] = health_score
+                item_desc = str(row['description'])
+                if item_desc in self.item_mapping:
+                    item_idx = self.item_mapping[item_desc]
+                    sales_count = float(row['total']) if 'total' in row.columns else 0.0
+                    sales_vector[item_idx] = sales_count
+            
+            sales_data_list.append(sales_vector)
         
-        print(f"   Extracted sales data for {len(sales_matrix)} time slots")
-        print(f"   Health scores for {len(health_scores_dict)} items")
+        # Print statistics
+        actual_health_scores = [score for score in health_scores_dict.values() if score != 3.5]
+        if actual_health_scores:
+            print(f"   ✅ Health scores range: {min(actual_health_scores):.1f}-{max(actual_health_scores):.1f}")
+        print(f"   ✅ Extracted sales data for {len(sales_data_list)} time slots")
         
-        return sales_matrix, health_scores_dict
+        return sales_data_list, health_scores_dict
 
 def train_fcps_model():
-    """Main training function"""
+    """Main training function with proper paths"""
     print("🍎 FCPS School Meal Recommendation System")
     print("=" * 50)
     
-    # Initialize data loader
-    loader = FCPSDataLoader("src/data")
+    # Initialize data loader with correct data directory
+    loader = FCPSDataLoader("../data")
     
     try:
         # Step 1: Load all data
-        loader.load_all_data()
+        if not loader.load_all_data():
+            print("❌ Failed to load data. Please check file paths.")
+            return None
         
         # Step 2: Prepare training data
         contexts_list, available_actions_list, time_slots = loader.prepare_training_data(max_time_slots=50)
         
+        if len(contexts_list) == 0:
+            print("❌ No training data prepared. Check your data files.")
+            return None
+        
         # Step 3: Extract sales and health data
-        sales_matrix, health_scores = loader.extract_sales_and_health_data()
+        sales_data_list, health_scores = loader.extract_sales_and_health_data()
         
-        # Step 4: Initialize model (160 foods, 19 nutritional features)
-        n_arms = 160
-        context_dim = 19  # Based on your feature matrix columns
-        model = LinUCB(n_arms=n_arms, context_dim=context_dim, alpha=1.0)
+        # Step 4: Initialize model
+        n_arms = len(loader.item_mapping)
+        context_dim = contexts_list[0].shape[0]
         
-        print(f"\n🧠 Model Initialized:")
+        print(f"\n🧠 Model Configuration:")
         print(f"   Foods: {n_arms}, Features: {context_dim}")
+        print(f"   Time slots: {len(contexts_list)}")
         
-        # Step 5: Convert sales data to training format
-        sales_data_list = []
-        for t in time_slots:
-            if t in sales_matrix:
-                # Create sales vector for all 160 items
-                sales_vector = np.zeros(160)
-                for item_idx, sales_count in sales_matrix[t].items():
-                    if item_idx < 160:  # Ensure valid index
-                        sales_vector[item_idx] = sales_count
-                sales_data_list.append(sales_vector)
-            else:
-                # Fallback: random sales
-                sales_data_list.append(np.random.poisson(30, 160))
+        model = LinUCB(n_arms=n_arms, context_dim=context_dim, alpha=1.0, lambda_reg=1.0)
         
-        # Step 6: TRAIN THE MODEL!
+        # Step 5: TRAIN THE MODEL!
         print("\n🚀 Starting Training...")
-        model.train(
+        rewards = model.train(
             contexts=contexts_list,
             available_actions_list=available_actions_list,
             sales_data=sales_data_list,
@@ -163,13 +228,16 @@ def train_fcps_model():
             lambda_param=0.3
         )
         
-        # Step 7: Evaluate Results
+        # Step 6: Evaluate Results
+        metrics = model.get_performance_metrics()
         print("\n📊 Training Results:")
-        print(f"   Total decisions: {len(model.rewards_list)}")
-        print(f"   Average reward: {np.mean(model.rewards_list):.2f}")
-        print(f"   Foods recommended: {np.sum(model.arm_counts > 0)}/160")
+        print(f"   Total decisions: {metrics['total_decisions']}")
+        print(f"   Average reward: {metrics['average_reward']:.3f}")
+        print(f"   Cumulative reward: {metrics['cumulative_reward']:.1f}")
+        print(f"   Cumulative regret: {metrics['cumulative_regret']:.1f}")
+        print(f"   Foods recommended: {metrics['foods_recommended']}/{n_arms}")
         
-        # Step 8: Show Sample Recommendations
+        # Step 7: Show Sample Recommendations
         print("\n💡 Sample Recommendations:")
         if contexts_list:
             sample_context = contexts_list[0]
@@ -179,15 +247,19 @@ def train_fcps_model():
             print("   Top 5 recommended foods:")
             for i, (food_idx, score) in enumerate(recommendations):
                 health = health_scores.get(food_idx, 0)
-                print(f"   {i+1}. Food #{food_idx}: score={score:.2f}, health={health:.1f}")
+                # Find item name from mapping
+                item_name = [k for k, v in loader.item_mapping.items() if v == food_idx]
+                item_display = item_name[0] if item_name else f"Food #{food_idx}"
+                print(f"   {i+1}. {item_display}: score={score:.2f}, health={health:.1f}")
         
-        # Step 9: Save Model
+        # Step 8: Save Model
         print("\n💾 Saving trained model...")
-        os.makedirs("models", exist_ok=True)
-        model.save("models/fcps_trained_model.json")
+        models_dir = os.path.dirname(__file__)
+        model_path = os.path.join(models_dir, "trained_fcps_model.json")
+        model.save(model_path)
         
         print("\n🎉 SUCCESS! FCPS Model Training Complete!")
-        print("   Next: Use this model for real cafeteria recommendations")
+        print(f"   Model saved to: {model_path}")
         
         return model
         
@@ -195,6 +267,8 @@ def train_fcps_model():
         print(f"❌ Training failed: {e}")
         import traceback
         traceback.print_exc()
+        return None
 
 if __name__ == "__main__":
     trained_model = train_fcps_model()
+# %%
