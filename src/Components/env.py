@@ -74,34 +74,125 @@ def save_feature_matrix(
     print(f"✓ Feature matrix saved to: {save_path}")
 
 # ===================== IO & Pathing =====================
+import pandas as pd
 
-def load_data(file_path: str) -> pd.DataFrame:
-    # Use low_memory=False to avoid DtypeWarning fragmentation across chunks
-    # Optionally coerce common text columns to string dtype
+def load_data(file_path: str, text_col: str = "description") -> pd.DataFrame:
+    """
+    Load a CSV file with robust text handling.
+    
+    Args:
+        file_path (str): Path to CSV file.
+        text_col (str): Name of the main text column (default: "description").
+    
+    Returns:
+        pd.DataFrame: Loaded DataFrame.
+    """
+    # Force text columns to string dtype
     dtype_overrides = {
         "school_name": "string",
         "time_of_day": "string",
-        "description": "string",
     }
-    return pd.read_csv(file_path, low_memory=False, dtype=dtype_overrides)
+    dtype_overrides[text_col] = "string"
 
-def _find_sales_csv() -> str:
+    # Read CSV with quote handling
+    df = pd.read_csv(
+        file_path,
+        low_memory=False,
+        dtype=dtype_overrides,
+        quotechar='"'
+    )
+
+    # Clean text column
+    if text_col in df.columns:
+        df[text_col] = df[text_col].str.strip().replace({"": pd.NA})
+    
+    return df
+
+
+
+def _find_csv(filename: str) -> str:
     """
-    Try a few likely locations for sales.csv.
+    Try a few likely locations for a given CSV file.
     Priority: repo_root/data, then src/data, then local cwd variants.
+
+    Args:
+        filename (str): Name of the CSV file to find (e.g., 'sales.csv').
+
+    Returns:
+        str: Absolute path to the CSV file if found.
+
+    Raises:
+        FileNotFoundError: If the file is not found in any likely location.
     """
+    # Base directory: either repo root or current working directory
     base_dir = Path(os.path.dirname(os.path.dirname(__file__))) if "__file__" in globals() else Path(os.getcwd())
+
     candidates = [
-        base_dir / "data" / "sales.csv",
-        base_dir / "src" / "data" / "sales.csv",
-        Path("data/sales.csv"),
-        Path("src/data/sales.csv"),
-        Path("sales.csv"),
+        base_dir / "data" / filename,
+        base_dir / "src" / "data" / filename,
+        Path("data") / filename,
+        Path("src/data") / filename,
+        Path(filename),
     ]
+
     for p in candidates:
         if p.is_file():
             return str(p.resolve())
-    raise FileNotFoundError(f"Could not find sales.csv in any of: {', '.join(str(p) for p in candidates)}")
+
+    raise FileNotFoundError(f"Could not find {filename} in any of: {', '.join(str(p) for p in candidates)}")
+
+# ===================== Health score =====================
+
+def health_score(row: pd.Series) -> float:
+    """
+    Simple health score = sum(%DV for good) - sum(%DV for bad), capped at 100 per nutrient.
+    """
+    DV = {
+        "elementary": {
+            "Calories": 1600, "Protein": 19, "Total Carbohydrate": 130,
+            "Dietary Fiber": 25, "Added Sugars": 25, "Total Fat": 40,
+            "Saturated Fat": 20, "Sodium": 1500, "Vitamin D": 20,
+            "Calcium": 1000, "Iron": 10, "Potassium": 4700,
+            "Vitamin A": 900, "Vitamin C": 90
+        },
+        "middle": {
+            "Calories": 2200, "Protein": 34, "Total Carbohydrate": 130,
+            "Dietary Fiber": 31, "Added Sugars": 50, "Total Fat": 77,
+            "Saturated Fat": 20, "Sodium": 2300, "Vitamin D": 20,
+            "Calcium": 1300, "Iron": 18, "Potassium": 4700,
+            "Vitamin A": 900, "Vitamin C": 90
+        },
+        "high": {
+            "Calories": 2600, "Protein": 46, "Total Carbohydrate": 130,
+            "Dietary Fiber": 38, "Added Sugars": 50, "Total Fat": 91,
+            "Saturated Fat": 20, "Sodium": 2300, "Vitamin D": 20,
+            "Calcium": 1300, "Iron": 18, "Potassium": 4700,
+            "Vitamin A": 900, "Vitamin C": 90
+        }
+    }
+    GOOD = ["Protein", "Dietary Fiber", "Vitamin D", "Calcium",
+            "Iron", "Potassium", "Vitamin A", "Vitamin C"]
+    BAD = ["Added Sugars", "Saturated Fat", "Sodium"]
+
+    school_group = str(row.get("school_group", "high")).lower()
+    if "elementary" in school_group:
+        dv = DV["elementary"]
+    elif "middle" in school_group:
+        dv = DV["middle"]
+    else:
+        dv = DV["high"]
+
+    good_score = 0.0
+    bad_score = 0.0
+    for n in GOOD:
+        val = row.get(n, 0) or 0
+        ref = dv.get(n, 1)
+        good_score += min(100, (val / ref) * 100)
+    for n in BAD:
+        val = row.get(n, 0) or 0
+        ref = dv.get(n, 1)
+        bad_score += min(100, (val / ref) * 100)
+    return good_score - bad_score
 
 # ===================== Mappings & Matrices =====================
 
@@ -293,12 +384,25 @@ def build_feature_matrix(
 # ===================== Main =====================
 
 if __name__ == "__main__":
-    DATA_PATH = _find_sales_csv() 
-    data = load_data(DATA_PATH)
-    print("Loaded sales.csv from:", DATA_PATH)
+# Step 1: Load sales.csv for health scores
+       
+    data_path = _find_csv("data_sales_nutrition.csv")
+    data=load_data(data_path, text_col="item")
+    print("Loaded sales.csv from:", data_path)
     print(data.head())
 
-    merged_data = data  # reuse; do not re-read
+    # Compute and save health scores
+    df = data.copy()
+    df["HealthScore"] = df.apply(health_score, axis=1)
+    output_file = "scored_data.csv"
+    df.to_csv(output_file, index=False)
+    print(f"✅ Health scores calculated and saved to {output_file}")
+
+    # Step 2: Load the merged dataset for item mapping / matrices
+    merged_path = _find_csv("fcps_data_with_timestamps.csv")  # adjust path if needed
+    merged_data = load_data(merged_path, text_col="description")
+    print("Loaded merged dataset from:", merged_path)
+    print(merged_data.head())
 
     print("Building item mapping...")
     item_to_idx, all_items = build_item_mapping(

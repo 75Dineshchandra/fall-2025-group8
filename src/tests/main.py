@@ -55,13 +55,13 @@ class FCPSDataLoader:
                 print(f"   ❌ Feature matrix not found at {feature_path}")
                 return False
             
-            # 3. Load Sales Data
-            sales_path = os.path.join(data_path, "sales.csv")
+            # 3. Load fcps_data_with_timestamps Data
+            sales_path = os.path.join(data_path, "fcps_data_with_timestamps.csv")
             if os.path.exists(sales_path):
                 self.sales_data = pd.read_csv(sales_path)
-                print(f"   ✅ Sales Data: {len(self.sales_data)} records")
+                print(f"   ✅ fcps_data_with_timestamps Data: {len(self.sales_data)} records")
             else:
-                print(f"   ❌ Sales data not found at {sales_path}")
+                print(f"   ❌ fcps_data_with_timestamps data not found at {sales_path}")
                 return False
             
             # 4. Load or Create Item Mapping
@@ -72,15 +72,6 @@ class FCPSDataLoader:
                 print(f"   ✅ Item Mapping: {len(self.item_mapping)} items")
             else:
                 print("   ⚠️  Item mapping not found, creating from sales data...")
-                self._create_item_mapping()
-                # Save the mapping for future use
-                mapping_df = pd.DataFrame({
-                    'item': list(self.item_mapping.keys()),
-                    'item_idx': list(self.item_mapping.values())
-                })
-                mapping_df.to_csv(mapping_path, index=False)
-                print(f"   ✅ Created and saved item mapping with {len(self.item_mapping)} items")
-            
             return True
             
         except Exception as e:
@@ -88,11 +79,6 @@ class FCPSDataLoader:
             import traceback
             traceback.print_exc()
             return False
-    
-    def _create_item_mapping(self):
-        """Create item mapping from sales data"""
-        unique_items = sorted(self.sales_data['description'].astype(str).unique())
-        self.item_mapping = {item: idx for idx, item in enumerate(unique_items)}
     
     def prepare_training_data(self, max_time_slots: int = 50) -> Tuple[List[np.ndarray], List[np.ndarray], List[int]]:
         """Prepare data for LinUCB training"""
