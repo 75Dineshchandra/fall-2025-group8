@@ -157,7 +157,8 @@ class FCPSDataLoader:
                 item_desc = str(row['description'])
                 if item_desc in self.item_mapping:
                     item_idx = self.item_mapping[item_desc]
-                    sales_count = float(row['total']) if 'total' in row.columns else 0.0
+                    # ✅ Check column existence at DataFrame level
+                    sales_count = float(row['total']) if 'total' in slot_data.columns else 0.0
                     sales_vector[item_idx] = sales_count
             
             sales_data_list.append(sales_vector)
