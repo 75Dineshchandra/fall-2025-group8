@@ -456,11 +456,12 @@ data["HealthScore"] = data.apply(health_score, axis=1)
 data.to_csv("scored_data.csv", index=False)
 print("✅ Health scores calculated and saved to scored_data.csv")
 
+```
+# week-4
 
-week-4
 
-## written reference code for model.py and main.py with sirisha
-
+### written reference code for model.py and main.py with sirisha
+```
 # main.py
 import os
 import numpy as np
@@ -615,7 +616,7 @@ def evaluate(actions: List[int], rewards: List[float]) -> Dict[str, float]:
         "avg_reward": float(np.mean(rewards)),
         "n_actions": len(actions)
     }
-
+```
 week-5,6
 
 The updated health_score() function accounts for all nutrient categories,
@@ -624,7 +625,7 @@ handles missing or zero values safely, and outputs rounded scores (2 decimals).
 ### added nutrition intakes limits in neatly as in a excel files and also added the FDA and american nutrition intakes reference files into github.
 
 
-
+```
 def health_score(row, min_score=None, max_score=None):
     # Daily Values (DV) for each school group
     DV = {
@@ -688,4 +689,4 @@ def health_score(row, min_score=None, max_score=None):
     scaled_score = np.round(scaled_score, 2)
 
     return scaled_score
-
+```
