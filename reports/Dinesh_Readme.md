@@ -455,3 +455,80 @@ data = load_data("data/sales.csv")
 data["HealthScore"] = data.apply(health_score, axis=1)
 data.to_csv("scored_data.csv", index=False)
 print("✅ Health scores calculated and saved to scored_data.csv")
+
+
+week-4
+
+week-5,6
+
+The updated health_score() function accounts for all nutrient categories,
+handles missing or zero values safely, and outputs rounded scores (2 decimals).
+
+### added nutrition intakes limits in neatly as in a excel files and also added the FDA and american nutrition intakes reference files into github.
+
+
+
+def health_score(row, min_score=None, max_score=None):
+    # Daily Values (DV) for each school group
+    DV = {
+        "elementary": {
+            "Calories": 2000, "Protein": 19, "Total Carbohydrate": 130,
+            "Dietary Fiber": 28, "Added Sugars": 20, "Total Fat": 50,
+            "Saturated Fat": 20, "Sodium": 1500, "Vitamin D": 20,
+            "Calcium": 1300, "Iron": 18, "Potassium": 4700,
+            "Vitamin A": 400, "Vitamin C": 25, "Cholesterol": 200
+        },
+        "middle": {
+            "Calories": 2600, "Protein": 34, "Total Carbohydrate": 130,
+            "Dietary Fiber": 36, "Added Sugars": 26, "Total Fat": 65,
+            "Saturated Fat": 26, "Sodium": 1800, "Vitamin D": 20,
+            "Calcium": 1300, "Iron": 18, "Potassium": 4700,
+            "Vitamin A": 600, "Vitamin C": 45, "Cholesterol": 200
+        },
+        "high": {
+            "Calories": 3200, "Protein": 52, "Total Carbohydrate": 130,
+            "Dietary Fiber": 44, "Added Sugars": 32, "Total Fat": 80,
+            "Saturated Fat": 32, "Sodium": 2300, "Vitamin D": 20,
+            "Calcium": 1300, "Iron": 18, "Potassium": 4700,
+            "Vitamin A": 900, "Vitamin C": 75, "Cholesterol": 200
+        }
+    }
+
+    GOOD = [
+        "Protein", "Dietary Fiber", "Vitamin D (D2 + D3)",
+        "Calcium", "Iron", "Potassium", "Vitamin A",
+        "Vitamin C", "Total Carbohydrate"
+    ]
+
+    BAD = [
+        "Added Sugars", "Saturated Fat", "Sodium",
+        "Cholesterol", "Total Fat", "Calories"
+    ]
+
+    # Determine the school group
+    school_group = str(row.get("school_group", "high")).lower()
+    dv = DV["high"]
+    if "elementary" in school_group:
+        dv = DV["elementary"]
+    elif "middle" in school_group:
+        dv = DV["middle"]
+
+    # Compute %DV
+    good_score = sum(min(100, (row.get(n, 0) / dv.get(n, 1)) * 100) for n in GOOD)
+    bad_score  = sum(min(100, (row.get(n, 0) / dv.get(n, 1)) * 100) for n in BAD)
+
+    raw_score = good_score - bad_score
+
+    # Default normalization bounds
+    if min_score is None:
+        min_score = -600
+    if max_score is None:
+        max_score = 900
+
+    # Normalize to 0–10
+    scaled_score = 10 * (raw_score - min_score) / (max_score - min_score)
+    scaled_score = np.clip(scaled_score, 0, 10)
+    scaled_score = np.round(scaled_score, 2)
+
+    return scaled_score
+
