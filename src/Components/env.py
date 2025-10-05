@@ -32,56 +32,91 @@ def get_features(data: pd.DataFrame) -> pd.DataFrame:
 
 # ===================== Health score =====================
 
-def health_score(row: pd.Series) -> float:
-    """
-    Simple health score = sum(%DV for good) - sum(%DV for bad), capped at 100 per nutrient.
-    """
+
+
+def health_score(row, min_score=None, max_score=None):
+    # Daily Values (DV) per school group
     DV = {
         "elementary": {
-            "Calories": 1600, "Protein": 19, "Total Carbohydrate": 130,
-            "Dietary Fiber": 25, "Added Sugars": 25, "Total Fat": 40,
+            "Calories": 2000, "Protein": 19, "Total Carbohydrate": 130,
+            "Dietary Fiber": 28, "Added Sugars": 20, "Total Fat": 50,
             "Saturated Fat": 20, "Sodium": 1500, "Vitamin D": 20,
-            "Calcium": 1000, "Iron": 10, "Potassium": 4700,
-            "Vitamin A": 900, "Vitamin C": 90
+            "Calcium": 1300, "Iron": 18, "Potassium": 4700,
+            "Vitamin A": 400, "Vitamin C": 25, 'Cholestrol':200
         },
         "middle": {
-            "Calories": 2200, "Protein": 34, "Total Carbohydrate": 130,
-            "Dietary Fiber": 31, "Added Sugars": 50, "Total Fat": 77,
-            "Saturated Fat": 20, "Sodium": 2300, "Vitamin D": 20,
+            "Calories": 2600, "Protein": 34, "Total Carbohydrate": 130,
+            "Dietary Fiber": 36, "Added Sugars": 26, "Total Fat": 65,
+            "Saturated Fat": 26, "Sodium": 1800, "Vitamin D": 20,
             "Calcium": 1300, "Iron": 18, "Potassium": 4700,
-            "Vitamin A": 900, "Vitamin C": 90
+            "Vitamin A": 600, "Vitamin C": 45, 'Cholestrol':200
         },
         "high": {
-            "Calories": 2600, "Protein": 46, "Total Carbohydrate": 130,
-            "Dietary Fiber": 38, "Added Sugars": 50, "Total Fat": 91,
-            "Saturated Fat": 20, "Sodium": 2300, "Vitamin D": 20,
+            "Calories": 3200, "Protein": 52, "Total Carbohydrate": 130,
+            "Dietary Fiber": 44, "Added Sugars": 32, "Total Fat": 80,
+            "Saturated Fat": 32, "Sodium": 2300, "Vitamin D": 20,
             "Calcium": 1300, "Iron": 18, "Potassium": 4700,
-            "Vitamin A": 900, "Vitamin C": 90
+            "Vitamin A": 900, "Vitamin C": 75, 'Cholestrol':200
         }
     }
-    GOOD = ["Protein", "Dietary Fiber", "Vitamin D", "Calcium",
-            "Iron", "Potassium", "Vitamin A", "Vitamin C"]
-    BAD = ["Added Sugars", "Saturated Fat", "Sodium"]
 
+
+    # Nutrient classifications
+    GOOD = [
+        "Protein", "Dietary Fiber", "Vitamin D", "Calcium", "Iron",
+        "Potassium", "Vitamin A", "Vitamin C", "Total Carbohydrate"
+    ]
+
+    BAD = [
+        "Added Sugars", "Saturated Fat", "Sodium", "Cholesterol", "Total Fat", "Calories"
+    ]
+
+    """# Nutrients classification
+    GOOD = ["Protein", "Dietary Fiber", "Vitamin D", "Calcium",
+            "Iron", "Potassium", "Vitamin A", "Vitamin C", ]
+    BAD = ["Added Sugars", "Saturated Fat", "Sodium"]"""
+
+    # Determine school group (default high school)
     school_group = str(row.get("school_group", "high")).lower()
     if "elementary" in school_group:
         dv = DV["elementary"]
     elif "middle" in school_group:
         dv = DV["middle"]
+    elif "high" in school_group:
+        dv = DV["high"]
     else:
         dv = DV["high"]
 
-    good_score = 0.0
-    bad_score = 0.0
+    good_score = 0
+    bad_score = 0
+
+    # Calculate %DV for good nutrients
     for n in GOOD:
         val = row.get(n, 0) or 0
         ref = dv.get(n, 1)
         good_score += min(100, (val / ref) * 100)
+
+    # Calculate %DV for bad nutrients
     for n in BAD:
         val = row.get(n, 0) or 0
         ref = dv.get(n, 1)
         bad_score += min(100, (val / ref) * 100)
-    return good_score - bad_score
+
+    raw_score = good_score - bad_score
+
+    # If min/max scores are not provided, use default range
+    if min_score is None:
+        min_score = -600  # worst-case negative score
+    if max_score is None:
+        max_score = 900   # best-case score
+
+    # Scale to 0-10 range
+    scaled_score = 10 * (raw_score - min_score) / (max_score - min_score)
+    scaled_score = max(0, min(10, scaled_score))  # clamp to [0,10]
+    scaled_score= np.round(scaled_score,2)
+
+    return scaled_score
+
 
 # ===================== Action matrix =====================
 
