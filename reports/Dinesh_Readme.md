@@ -459,6 +459,163 @@ print("✅ Health scores calculated and saved to scored_data.csv")
 
 week-4
 
+## written reference code for model.py and main.py with sirisha
+
+# main.py
+import os
+import numpy as np
+import pandas as pd
+
+from Components.env import load_data, health_score, build_action_matrix, build_feature_matrix
+from Components.model import train_linucb, evaluate
+import Components.plot as plot
+
+if __name__ == "__main__":
+    # ---------- Load data ----------
+    DATA_PATH = os.path.join("data", "sales.csv")
+    df = load_data(DATA_PATH)
+    print("✅ Data loaded:", df.shape)
+
+    # ---------- Add health score ----------
+    df["HealthScore"] = df.apply(health_score, axis=1)
+
+    # ---------- Build matrices ----------
+    action_matrix, all_items, item_to_idx = build_action_matrix(df, item_col="description")
+    X_all, feature_names, rows_df, groups, meta = build_feature_matrix(df, item_col="description")
+
+    # Reward definition: here we use health score
+    rewards = df["HealthScore"].to_numpy()
+
+    # ---------- Train model ----------
+    agent, actions_taken, rewards_received = train_linucb(
+        X_all, groups, rewards, alpha=1.0
+    )
+
+    # ---------- Evaluate ----------
+    metrics = evaluate(actions_taken, rewards_received)
+    print("📊 Evaluation:", metrics)
+
+    # ---------- Plots ----------
+    plot.model_average_plot(
+        data=None, 
+        rewards=np.array(rewards_received), 
+        action_matrix=action_matrix, 
+        arm_means=[df.groupby("description")["HealthScore"].mean().to_numpy()],
+        top=5
+    )
+    plot.model_cumulative_plot(
+        data=None,
+        rewards=np.array(rewards_received),
+        action_matrix=action_matrix,
+        arm_means=[df.groupby("description")["HealthScore"].mean().to_numpy()],
+        top=5
+    )
+
+# model.py
+import numpy as np
+from typing import Dict, List, Tuple
+
+class LinUCB:
+    """
+    Linear UCB contextual bandit implementation.
+    """
+    def __init__(self, n_arms: int, n_features: int, alpha: float = 1.0):
+        self.n_arms = n_arms
+        self.n_features = n_features
+        self.alpha = alpha
+
+        # For each arm: A = dxd identity, b = dx1 zero
+        self.A = [np.identity(n_features) for _ in range(n_arms)]
+        self.b = [np.zeros((n_features, 1)) for _ in range(n_arms)]
+
+    def select_arm(self, x: np.ndarray) -> int:
+        """
+        Select arm using LinUCB rule.
+        Args:
+            x: context vector (d,)
+        Returns:
+            chosen arm index
+        """
+        x = x.reshape(-1, 1)
+        p = np.zeros(self.n_arms)
+
+        for a in range(self.n_arms):
+            A_inv = np.linalg.inv(self.A[a])
+            theta = A_inv @ self.b[a]
+            mean = float(theta.T @ x)
+            var = float(self.alpha * np.sqrt(x.T @ A_inv @ x))
+            p[a] = mean + var
+
+        return int(np.argmax(p))
+
+    def update(self, chosen_arm: int, reward: float, x: np.ndarray):
+        """
+        Update A and b for chosen arm.
+        """
+        x = x.reshape(-1, 1)
+        self.A[chosen_arm] += x @ x.T
+        self.b[chosen_arm] += reward * x
+
+# ===================== Training =====================
+
+def train_linucb(
+    X_all: np.ndarray,
+    groups: Dict[int, np.ndarray],
+    rewards: np.ndarray,
+    alpha: float = 1.0
+) -> Tuple[LinUCB, List[int], List[float]]:
+    """
+    Train LinUCB on provided dataset.
+
+    Args:
+        X_all: feature matrix (n_samples, n_features)
+        groups: mapping t -> indices of actions available at time t
+        rewards: reward array (n_samples,)
+        alpha: exploration parameter
+
+    Returns:
+        (trained agent, actions taken, rewards received)
+    """
+    n_features = X_all.shape[1]
+    n_arms = len(np.unique([idx for arr in groups.values() for idx in arr]))
+
+    agent = LinUCB(n_arms=n_arms, n_features=n_features, alpha=alpha)
+    actions_taken, rewards_received = [], []
+
+    for t, indices in sorted(groups.items()):
+        # select the best arm from available options
+        scores = {}
+        for idx in indices:
+            x = X_all[idx]
+            scores[idx] = agent.select_arm(x)
+
+        chosen_idx = max(scores, key=scores.get)  # use LinUCB rule
+        chosen_arm = scores[chosen_idx]
+
+        reward = rewards[chosen_idx]
+
+        # update agent
+        agent.update(chosen_arm, reward, X_all[chosen_idx])
+
+        actions_taken.append(chosen_arm)
+        rewards_received.append(reward)
+
+    return agent, actions_taken, rewards_received
+
+
+
+# ===================== Evaluation =====================
+
+def evaluate(actions: List[int], rewards: List[float]) -> Dict[str, float]:
+    """
+    Simple evaluation metrics.
+    """
+    return {
+        "total_reward": float(np.sum(rewards)),
+        "avg_reward": float(np.mean(rewards)),
+        "n_actions": len(actions)
+    }
+
 week-5,6
 
 The updated health_score() function accounts for all nutrient categories,
