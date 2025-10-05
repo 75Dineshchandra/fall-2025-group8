@@ -11,65 +11,46 @@ Note: Use Markdown Cheat Sheet download in the directory as needed.
 
 - Action Items:
 
-* [ Done] read the notes 
-* [Done ] prepping code and repo
+* [Done] read the notes 
+* [Done] prepping code and repo
 
 ---
-## Date: Week 3 - Month Day Year 
+## Date: Week 3 - 09-23-2025 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - written Healthscore function
+    - researched NRF9.3
+    
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [Done] written Healthscore function
+* [Done] researched NRF9.3
+
 ---
-## Date: Week 4 - Month Day Year 
+## Date: Week 4&5 - 10-01-25 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Dummy code for linucb
+    - Dummy code for main.py
+    
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [Done] Dummy code for linucb
+* [Done] Dummy code for main.py
+
 ---
-## Date: Week 5 - Month Day Year 
+## Date: Week 6 - 10-08-2025
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Rewritten Healthscore to perfection
+    - commit all the reference files
+    - commenting references in excel and commiting it
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
----
-## Date: Week 6 - Month Day Year 
-- Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+* [Done] Rewritten Healthscore to perfection
+* [Done] commit all the reference files
+* [Done] commenting references in excel and commiting it
 
-- Action Items:
-
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
 ---
 ## Date: Week 7 - Month Day Year 
 - Topics of discussion
