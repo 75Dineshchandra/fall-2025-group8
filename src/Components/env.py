@@ -23,10 +23,21 @@ REWARD_CSV     = DATA_DIR / "rewards.csv"
 OVERWRITE = False       # set True to force rebuild of matrices if files exist
 LAMBDA_H  = 0.1         # weight for HealthScore_z in reward
 
-# ===================== IO Helpers =====================
+#def get_actions(data: pd.DataFrame) -> np.ndarray:
+    """
+    Return unique actions from either 'sales_item' or 'description'.
+    """
+    data = pd.DataFrame(data)
+    col = "sales_item" if "sales_item" in data.columns else "description"
+    if col not in data.columns:
+        raise KeyError("Neither 'sales_item' nor 'description' column was found.")
+    return data[col].astype(str).unique()
 
-def ensure_dir(p: Path) -> None:
-    p.parent.mkdir(parents=True, exist_ok=True)
+#def get_features(data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return the feature frame (kept simple here: returns the input df).
+    """
+    return pd.DataFrame(data)
 
 def load_data(file_path: Path, text_col: str = "description") -> pd.DataFrame:
     dtype_overrides = {"school_name": "string", "time_of_day": "string"}
@@ -261,11 +272,41 @@ def main():
     # Load merged once
     merged = load_data(MERGED_CSV, text_col="description")
 
-    # Item mapping
-    if ITEM_MAP_CSV.exists() and not OVERWRITE:
-        item_map_df = pd.read_csv(ITEM_MAP_CSV)
-        item_to_idx = dict(zip(item_map_df["item"].astype(str), item_map_df["item_idx"].astype(int)))
-        print(f"• Using existing item mapping: {ITEM_MAP_CSV}")
+    #features = get_features(data)
+    #print("Features shape:", features.shape)
+
+    #actions = get_actions(data)
+    #print("Unique actions:", actions)
+    #print("Number of unique actions:", len(actions))
+
+    # Compute and save health scores
+    df = data.copy()
+    df["HealthScore"] = df.apply(health_score, axis=1)
+    output_file = "scored_data.csv"
+    df.to_csv(output_file, index=False)
+    print(f"✅ Health scores calculated and saved to {output_file}")
+
+    # ---------- Optional: build action/feature matrices if columns exist ----------
+    # Prepare dataframe expected by the matrix builders
+    merged = pd.read_csv("/Users/ganeshkumarboini/Documents/testrepo/fall-2025-group8/src/data/data_with_timestamps.csv")
+    if "sales_item" in merged.columns and "description" not in merged.columns:
+        merged = merged.rename(columns={"sales_item": "description"})
+
+    # Action matrix (requires time_slot_id + description)
+    if all(c in merged.columns for c in ["time_slot_id", "description"]):
+        action_matrix, all_items, item_to_idx = build_action_matrix(merged, item_col="description")
+        np.save("action_matrix.npy", action_matrix)
+        with open("action_matrix.pkl", "wb") as f:
+            pickle.dump(action_matrix, f)
+        pd.DataFrame(action_matrix, columns=all_items).to_csv("action_matrix.csv", index=False)
+        with open("item_to_idx.json", "w") as f:
+            json.dump(item_to_idx, f)
+        with open("item_to_idx.pkl", "wb") as f:
+            pickle.dump(item_to_idx, f)
+        time_cols = [c for c in ["time_slot_id", "date", "school_code"] if c in merged.columns]
+        if time_cols:
+            merged[time_cols].drop_duplicates().sort_values(time_cols).to_csv("time_slots_info.csv", index=False)
+        print("✅ Action matrix artifacts saved.")
     else:
         item_to_idx, _ = build_item_mapping(merged, item_col="description", save_path=ITEM_MAP_CSV)
 
@@ -292,60 +333,16 @@ def main():
             default_nutrients=None, # uses default list inside
             add_bias=False
         )
-        save_feature_matrix(X, names, rows_df, FEATURE_CSV)
-
-    # Rewards with extra columns (school_code/name/time_of_day/day_name)
-    build_and_save_rewards(FEATURE_CSV, MERGED_CSV, REWARD_CSV, lambda_h=LAMBDA_H)
-
-if __name__ == "__main__":
-    main()
-'''
-Because we want each item’s healthiness to be measured relative to the whole population of items, not just what was served in one cafeteria on one day.
-Step-by-step what actually happens
-Let’s say your full fcps_data_with_timestamps.csv has 224,000 rows.
-When the code runs:
-hs = aligned["HealthScore"].to_numpy(dtype=float)
-hs_mu = np.nanmean(hs)
-hs_sd = np.nanstd(hs)
-hs_z = (hs - hs_mu) / hs_sd
-Here’s what that means:
-It collects all HealthScores for all rows (each row = one (time_slot_id, item) pair).
-So it might look like: [3.1, 3.3, 2.9, 4.8, 3.7, …]
-Then it computes:
-mean = 3.6
-std = 0.5
-Then it transforms every HealthScore:
-For example: z = (3.8 – 3.6) / 0.5 = +0.4
-So each item now says, “I’m +0.4 healthier than the average item in the whole dataset.”
-So every HealthScore becomes a relative health value, comparable across all contexts.
-But what happens within Monday or a specific school?
-The context (Monday / school / time of day) still matters —
-but it lives in your feature_matrix.csv, not in the z-score computation.
-So when you compute rewards, the model still knows:
-This row is Colvin Run Elementary
-This time is Monday breakfast
-This item is Cereal Meal
-Health z-score = +0.4 (healthier than average)
-Total sold = 19
-→ reward = 19 + 0.1 × 0.4 = 19.04
-At another time slot (say, Tuesday lunch at a different school), the same item might have the same z-score (+0.4) but a different sales count, so its reward will change (e.g., 28 + 0.1 × 0.4 = 28.04).
-So:
-The z-score part is global (how healthy an item is overall)
-The sales (total) part is context-specific (how well it performed that day, at that school, during that meal)
-When you combine them:
-Reward = context-specific popularity + small boost/penalty for global healthiness.
- Analogy
-Think of it like movie ratings 🎬:
-The z-score is like a movie’s IMDB rating (global quality across all viewers).
-The sales are like its ticket sales at a particular cinema on Monday.
-The reward combines both — a movie that sells well and is high-rated gets the highest reward.
-TL;DR
-Concept	Scope	Why
-HealthScore mean/std	Global (across all data)	So each item’s health value is relative to all items
-total sales	Local (per time slot / school / day)	Reflects actual performance that day
-reward = total + λ × z(HealthScore)	Combines global health + local popularity	Gives one numeric signal to the bandit
-Context (school, day, time)	Stored in feature_matrix.csv	Keeps reward aligned with its scenario
-So when you see each number in reward.csv,
-it represents “How this specific item performed in its specific time slot, plus a small health boost based on its overall nutritional standing.”
-
-'''
+        np.save("feature_matrix.npy", X_all)
+        with open("feature_matrix.pkl", "wb") as f:
+            pickle.dump({
+                "X_all": X_all,
+                "feature_names": feature_names,
+                "groups": groups,
+                "meta": meta
+            }, f)
+        rows_df.to_csv("feature_rows.csv", index=False)
+        pd.DataFrame({"feature_names": feature_names}).to_csv("feature_names.csv", index=False)
+        print("✅ Feature matrix artifacts saved.")
+    else:
+        print("ℹ️ Skipping feature matrix (need 'description' and 'time_slot_id' or 't').")
