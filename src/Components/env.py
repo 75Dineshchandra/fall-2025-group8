@@ -284,7 +284,7 @@ def main():
     df["HealthScore"] = df.apply(health_score, axis=1)
     output_file = "scored_data.csv"
     df.to_csv(output_file, index=False)
-    print(f"✅ Health scores calculated and saved to {output_file}")
+    print(f" Health scores calculated and saved to {output_file}")
 
     # ---------- Optional: build action/feature matrices if columns exist ----------
     # Prepare dataframe expected by the matrix builders
@@ -306,7 +306,7 @@ def main():
         time_cols = [c for c in ["time_slot_id", "date", "school_code"] if c in merged.columns]
         if time_cols:
             merged[time_cols].drop_duplicates().sort_values(time_cols).to_csv("time_slots_info.csv", index=False)
-        print("✅ Action matrix artifacts saved.")
+        print("Action matrix artifacts saved.")
     else:
         item_to_idx, _ = build_item_mapping(merged, item_col="description", save_path=ITEM_MAP_CSV)
 
@@ -343,6 +343,6 @@ def main():
             }, f)
         rows_df.to_csv("feature_rows.csv", index=False)
         pd.DataFrame({"feature_names": feature_names}).to_csv("feature_names.csv", index=False)
-        print("✅ Feature matrix artifacts saved.")
+        print(" Feature matrix artifacts saved.")
     else:
-        print("ℹ️ Skipping feature matrix (need 'description' and 'time_slot_id' or 't').")
+        print(" Skipping feature matrix (need 'description' and 'time_slot_id' or 't').")
