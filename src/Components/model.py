@@ -58,12 +58,29 @@ class LinUCB:
 
     def train(self, X: np.ndarray, rows_df: pd.DataFrame, rewards: np.ndarray, avail_mat: np.ndarray,
               verbose: bool = False) -> Dict[str, float]:
+        # ---- column name robustness: accept either 'time_slot_id' or 't'
+        time_col = "time_slot_id" if "time_slot_id" in rows_df.columns else ("t" if "t" in rows_df.columns else None)
+        if time_col is None:
+            raise KeyError("rows_df must contain 'time_slot_id' or 't'")
+
+        # ---- basic shape/align checks
+        if X.shape[0] != len(rows_df):
+            raise ValueError(f"X rows ({X.shape[0]}) != rows_df rows ({len(rows_df)})")
+        if rewards.shape[0] != len(rows_df):
+            raise ValueError(f"rewards length ({rewards.shape[0]}) != rows_df rows ({len(rows_df)})")
+        if avail_mat.shape[1] != self.n_arms:
+            raise ValueError(f"avail_mat n_arms ({avail_mat.shape[1]}) != model.n_arms ({self.n_arms})")
+
         # group indices by time slot
-        groups = {int(t): np.array(list(idxs), dtype=int) for t, idxs in rows_df.groupby("time_slot_id").groups.items()}
+        groups = {int(t): np.array(list(idxs), dtype=int)
+                  for t, idxs in rows_df.groupby(time_col).groups.items()}
 
         total, oracle, steps = 0.0, 0.0, 0
         for t in sorted(groups.keys()):
             ridxs = groups[t]
+            if t >= avail_mat.shape[0]:
+                # if an unseen t slips in, skip gracefully
+                continue
             available = np.where(avail_mat[t] == 1)[0].tolist()
             if not available:
                 continue
@@ -104,7 +121,8 @@ class LinUCB:
         return scores[:topk]
 
     def save(self, path: str) -> None:
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True
+        )
         joblib.dump({"A": self.A, "b": self.b, "d": self.d, "n_arms": self.n_arms, "alpha": self.alpha, "l2": self.l2}, path)
         print(f" Model saved to {path}")
 
