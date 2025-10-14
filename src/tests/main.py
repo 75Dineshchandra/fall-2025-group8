@@ -159,7 +159,7 @@ def print_enhanced_recommendations(recommendations):
         
         print(f"{rank}. {rec['meal']}")
         print(f"   Sales: {rec['avg_sales']:.0f} ({popularity_status})")
-        print(f"   Health: {rec['avg_health']:.1f}/5.0 ({health_status})")
+        print(f"   Health: {rec['avg_health']:.1f}")
         print(f"   Model Score: {rec['ucb_score']:.2f} (confidence)")
         print()
     
