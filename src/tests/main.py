@@ -1,99 +1,183 @@
-# main.py — load trained model and recommend for a given (date, school, meal)
-import sys, os
-from pathlib import Path
-import numpy as np
+#  main_predict.py
+# Predict for dates NOT in the historical data USING TRAINED MODEL
+
 import pandas as pd
+import numpy as np
+from datetime import datetime
+from pathlib import Path
+import sys
+import joblib
 
-# --- make sure src/Components is importable ---
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-SRC_DIR = os.path.abspath(os.path.join(THIS_DIR, ".."))
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
+# Add this to import your LinUCB model
+sys.path.append(str(Path(__file__).parent.parent))
+from Components.model import LinUCB
 
-from Components.model import LinUCB  # keep case consistent with folder name
+# Load data
+merged_data_file = Path("src/data/fcps_data_with_timestamps.csv")
+merged_data = pd.read_csv(merged_data_file, low_memory=False)
 
-# --- correct file paths ---
-BASE = Path(__file__).resolve().parents[1] / "data"
-FEATURE_PATH = BASE / "feature_matrix.csv"
-ACTION_PATH = BASE / "action_matrix.csv"
-MERGED_PATH = BASE / "fcps_data_with_timestamps.csv"   # used to locate t for a context
-MODEL_PATH = Path(__file__).resolve().parent / "trained_linucb.joblib"
+# Load feature matrix to get nutritional features
+feature_matrix_file = Path("src/data/feature_matrix.csv")
+feature_df = pd.read_csv(feature_matrix_file, low_memory=False)
 
-# --- helper functions ---
-def load_features(path: Path):
-    df = pd.read_csv(path, low_memory=False)
-    meta_cols = ["time_slot_id", "item", "item_idx"]
-    feat_cols = [c for c in df.columns if c not in meta_cols]
-    X = df[feat_cols].to_numpy(dtype=np.float32)
-    rows = df[meta_cols].copy()
-    # group map for quick access
-    groups = rows.groupby("time_slot_id").groups
-    return X, rows, feat_cols, groups
+# Load item mapping to convert between item names and indices
+item_mapping_file = Path("src/data/item_mapping.csv")
+item_mapping_df = pd.read_csv(item_mapping_file, low_memory=False)
 
-def load_availability(path: Path):
-    A = pd.read_csv(path, low_memory=False)
-    item_cols = [c for c in A.columns if c.startswith("item_")]
-    return A[item_cols].to_numpy(dtype=np.int32)
+# Create mapping dictionaries
+item_to_index = dict(zip(item_mapping_df['item'], item_mapping_df['item_idx']))
+index_to_item = dict(zip(item_mapping_df['item_idx'], item_mapping_df['item']))
 
-# --- main recommendation function ---
-def recommend_for(date_str: str, school_name: str, time_of_day: str, topk: int = 5):
-    # 1️⃣ load data & model
-    if not MODEL_PATH.exists():
-        print(f" Trained model not found at {MODEL_PATH}. Train and save first.")
-        return
+def get_day_of_week_name(date_str):
+    """Convert date to day name (Monday, Tuesday, etc)"""
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+    return date_obj.strftime("%A")
 
-    X, rows_df, _, groups = load_features(FEATURE_PATH)
-    avail = load_availability(ACTION_PATH)
-    merged = pd.read_csv(MERGED_PATH, low_memory=False)
-    model = LinUCB.load(str(MODEL_PATH))
+def get_features_for_context(target_date, school, meal_time):
+    """
+    Get nutritional features for items available in similar historical context
+    Returns features_by_arm with ITEM INDICES (0-159) as keys
+    """
+    day_name = get_day_of_week_name(target_date)
+    
+    # Find items that were typically available in similar contexts
+    similar_data = merged_data[
+        (merged_data['school_name'] == school) &
+        (merged_data['time_of_day'] == meal_time) & 
+        (merged_data['day_name'] == day_name)
+    ]
+    
+    # Get unique items from similar contexts
+    typical_items = similar_data['description'].unique()
+    
+    # Get their features from feature matrix - using ITEM INDICES
+    features_by_arm = {}
+    for item_name in typical_items:
+        # Convert item name to item index
+        item_idx = item_to_index.get(item_name)
+        if item_idx is not None:
+            item_features = feature_df[feature_df['item'] == item_name]
+            if len(item_features) > 0:
+                # Get the feature columns (exclude metadata)
+                feature_cols = [col for col in item_features.columns if col not in ['time_slot_id', 'item', 'item_idx']]
+                features = item_features[feature_cols].iloc[0].values
+                features_by_arm[item_idx] = features  # Use item index as key
+    
+    return features_by_arm
 
-    # 2️⃣ filter by context (day, school, meal)
-    mask = (
-        (merged["date"].astype(str) == date_str)
-        & (merged["school_name"].astype(str) == school_name)
-        & (merged["time_of_day"].astype(str) == time_of_day)
-    )
-    slot_ids = sorted(merged.loc[mask, "time_slot_id"].dropna().astype(int).unique())
-    if not slot_ids:
-        print(f" No time slots found for {date_str} | {school_name} | {time_of_day}")
-        return
+def recommend_with_trained_model(target_date, school, meal_time, model_path, top_k=5):
+    """
+    Get recommendations using your TRAINED LinUCB model
+    This uses the optimal lambda = 0.05 balance we found
+    """
+    print(f"Getting SMART recommendations using trained model...")
+    print(f"Date: {target_date}, School: {school}, Meal: {meal_time}")
+    print()
+    
+    # Load the optimal model (lambda = 0.05)
+    model = LinUCB.load(model_path)
+    print(f" Loaded trained model: {model_path}")
+    print(f" Using optimal lambda balance found in training")
+    print()
+    
+    # Get features for available items (with ITEM INDICES as keys)
+    features_by_arm = get_features_for_context(target_date, school, meal_time)
+    
+    if not features_by_arm:
+        print("No items found for this context")
+        return None
+    
+    print(f"Found {len(features_by_arm)} typically available items")
+    
+    # Get model recommendations (returns item indices)
+    recommendations = model.get_recommendations(features_by_arm, top_k=top_k)
+    
+    # Convert item indices back to item names and get sales/health info
+    enhanced_recommendations = []
+    for item_idx, ucb_score in recommendations:
+        # Convert index back to item name
+        item_name = index_to_item.get(item_idx, f"Unknown_Item_{item_idx}")
+        
+        # Get sales and health info from historical data
+        item_data = merged_data[
+            (merged_data['description'] == item_name) &
+            (merged_data['school_name'] == school) &
+            (merged_data['time_of_day'] == meal_time)
+        ]
+        
+        if len(item_data) > 0:
+            avg_sales = item_data['total'].mean()
+            avg_health = item_data['HealthScore'].mean()
+            
+            enhanced_recommendations.append({
+                'meal': item_name,
+                'avg_sales': avg_sales,
+                'avg_health': avg_health,
+                'ucb_score': ucb_score,  # The model's confidence score
+                'combined_score': ucb_score  # Use model's score for ranking
+            })
+        else:
+            # Fallback if no historical data found
+            enhanced_recommendations.append({
+                'meal': item_name,
+                'avg_sales': 0,
+                'avg_health': 3.0,  # Default average health
+                'ucb_score': ucb_score,
+                'combined_score': ucb_score
+            })
+    
+    return enhanced_recommendations
 
-    # 3️⃣ generate recommendations per slot
-    for t in slot_ids:
-        if t not in groups:
-            print(f"(t={t}) not present in feature_matrix; skipping.")
-            continue
-        if t >= avail.shape[0]:
-            print(f"(t={t}) exceeds availability matrix rows; skipping.")
-            continue
+def print_enhanced_recommendations(recommendations):
+    """
+    Enhanced display that shows health-popularity balance
+    Helps cafeteria staff understand WHY items are recommended
+    """
+    print("TOP RECOMMENDATIONS - Using Trained Model (Optimal Balance)")
+    print("=" * 80)
+    
+    for rank, rec in enumerate(recommendations, 1):
+        # Health classification
+        if rec['avg_health'] >= 4.5:
+            health_status = "HEALTH STAR "
+        elif rec['avg_health'] >= 4.0:
+            health_status = "Very Healthy "
+        elif rec['avg_health'] >= 3.5:
+            health_status = "Moderately Healthy "
+        else:
+            health_status = "Less Healthy "
+            
+        # Popularity classification  
+        if rec['avg_sales'] >= 150:
+            popularity_status = "VERY POPULAR "
+        elif rec['avg_sales'] >= 100:
+            popularity_status = "Popular "
+        elif rec['avg_sales'] >= 50:
+            popularity_status = "Moderate "
+        else:
+            popularity_status = "Less Popular "
+        
+        print(f"{rank}. {rec['meal']}")
+        print(f"   Sales: {rec['avg_sales']:.0f} ({popularity_status})")
+        print(f"   Health: {rec['avg_health']:.1f}/5.0 ({health_status})")
+        print(f"   Model Score: {rec['ucb_score']:.2f} (confidence)")
+        print()
+    
 
-        ridxs = list(groups[t])
-        available = np.where(avail[t] == 1)[0].tolist()
-
-        x_by_arm = {}
-        for ridx in ridxs:
-            a = int(rows_df.iloc[ridx]["item_idx"])
-            if a in available:
-                # rebuild feature matrix subset row-by-row
-                # X[ridx] aligns with rows_df row ridx
-                x_by_arm[a] = X[ridx]
-
-        if not x_by_arm:
-            print(f"(t={t}) no available items; skipping.")
-            continue
-
-        recs = model.recommend(x_by_arm, topk=topk)
-
-        print(f"\nTop {topk} for {date_str} | {school_name} | {time_of_day} | t={t}")
-        for rank, (arm, score) in enumerate(recs, 1):
-            item = rows_df[rows_df["item_idx"] == arm]["item"].iloc[0]
-            print(f"  {rank}. {item} (arm={arm}, UCB={score:.3f})")
-
-# --- example usage ---
+# Main execution
 if __name__ == "__main__":
-    recommend_for(
-        date_str="2025-03-03",
-        school_name="COLVIN_RUN_ELEMENTARY",
-        time_of_day="lunch",
-        topk=5
+    # Use the OPTIMAL model (lambda = 0.05 from your training)
+    optimal_model_path = "src/tests/results/model_lambda_0.05.joblib"
+    
+    recommendations = recommend_with_trained_model(
+        target_date='2025-10-15',
+        school="COLVIN_RUN_ELEMENTARY",
+        meal_time="lunch",
+        model_path=optimal_model_path,
+        top_k=5
     )
+    
+    if recommendations is None:
+        print("Could not generate recommendations")
+    else:
+        print_enhanced_recommendations(recommendations)

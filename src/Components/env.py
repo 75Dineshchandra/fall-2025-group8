@@ -1,351 +1,373 @@
-# single_script.py
-# Run: python3 single_script.py
-# Unifies outputs under src/data/, reuses existing matrices if present, and
-# writes rewards.csv with extra context columns.
+# env.py
+# Purpose: Build feature matrix, action matrix, and time slot mapping from raw FCPS sales data
+# This file transforms raw cafeteria sales data into structured formats for machine learning
+
 
 import os
 from pathlib import Path
-from typing import Tuple, Dict, List, Any
-
+from typing import Tuple, Dict, List
 import numpy as np
 import pandas as pd
 
-# ===================== Config =====================
-DATA_DIR = Path("src/data")
-SALES_NUTR_CSV = DATA_DIR / "data_sales_nutrition.csv"
-MERGED_CSV     = DATA_DIR / "fcps_data_with_timestamps.csv"
+# ===== FILE PATHS =====
 
-ITEM_MAP_CSV   = DATA_DIR / "item_mapping.csv"
-ACTION_CSV     = DATA_DIR / "action_matrix.csv"
-FEATURE_CSV    = DATA_DIR / "feature_matrix.csv"
-REWARD_CSV     = DATA_DIR / "rewards.csv"
+data_dir = Path("src/data")
+input_csv = data_dir / "fcps_data_with_timestamps.csv"  # Raw sales data from FCPS
 
-OVERWRITE = False       # set True to force rebuild of matrices if files exist
-LAMBDA_H  = 0.1         # weight for HealthScore_z in reward
+# Output files that will be created:
+item_mapping_file = data_dir / "item_mapping.csv"           # Maps meal names to numbers
+time_slot_mapping_file = data_dir / "time_slot_mapping.csv" # Maps time periods to IDs
+action_matrix_file = data_dir / "action_matrix.csv"         # What was available when
+feature_matrix_file = data_dir / "feature_matrix.csv"       # Nutritional information
 
-# ===================== IO Helpers =====================
+# ===== CONFIGURATION =====
 
-def ensure_dir(p: Path) -> None:
-    p.parent.mkdir(parents=True, exist_ok=True)
+overwrite_existing = False  # Set to True to rebuild all matrices from scratch
 
-def load_data(file_path: Path, text_col: str = "description") -> pd.DataFrame:
-    dtype_overrides = {"school_name": "string", "time_of_day": "string"}
-    dtype_overrides[text_col] = "string"
-    df = pd.read_csv(file_path, low_memory=False, dtype=dtype_overrides, quotechar='"')
-    if text_col in df.columns:
-        df[text_col] = df[text_col].str.strip().replace({"": pd.NA})
-    return df
+# Nutritional columns to include in feature matrix
+# These are the health dimensions our model will learn from
+nutrient_columns = ["GramsPerServing", "Calories", "Protein", "Total Carbohydrate", 
+                    "Dietary Fiber", "Total Sugars", "Added Sugars", "Total Fat", 
+                    "Saturated Fat", "Trans Fat", "Cholesterol", "Sodium", 
+                    "Vitamin D (D2 + D3)", "Calcium", "Iron", "Potassium", 
+                    "Vitamin A", "Vitamin C"]
 
-# ===================== Health score (optional) =====================
+# ===== HELPER FUNCTIONS =====
 
-def health_score(row: pd.Series) -> float:
-    DV = {
-        "elementary": {"Calories":1600,"Protein":19,"Total Carbohydrate":130,"Dietary Fiber":25,"Added Sugars":25,
-                       "Total Fat":40,"Saturated Fat":20,"Sodium":1500,"Vitamin D":20,"Calcium":1000,"Iron":10,
-                       "Potassium":4700,"Vitamin A":900,"Vitamin C":90},
-        "middle":     {"Calories":2200,"Protein":34,"Total Carbohydrate":130,"Dietary Fiber":31,"Added Sugars":50,
-                       "Total Fat":77,"Saturated Fat":20,"Sodium":2300,"Vitamin D":20,"Calcium":1300,"Iron":18,
-                       "Potassium":4700,"Vitamin A":900,"Vitamin C":90},
-        "high":       {"Calories":2600,"Protein":46,"Total Carbohydrate":130,"Dietary Fiber":38,"Added Sugars":50,
-                       "Total Fat":91,"Saturated Fat":20,"Sodium":2300,"Vitamin D":20,"Calcium":1300,"Iron":18,
-                       "Potassium":4700,"Vitamin A":900,"Vitamin C":90}
-    }
-    GOOD = ["Protein","Dietary Fiber","Vitamin D","Calcium","Iron","Potassium","Vitamin A","Vitamin C"]
-    BAD  = ["Added Sugars","Saturated Fat","Sodium"]
+def create_directory_if_needed(file_path):
+    """Create parent directory if it doesn't exist"""
+    file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    school_group = str(row.get("school_group", "high")).lower()
-    dv = DV["elementary"] if "elementary" in school_group else (DV["middle"] if "middle" in school_group else DV["high"])
+def load_sales_data(file_path):
+    """Load the raw sales data CSV file"""
+    print("Loading raw sales data...")
+    data = pd.read_csv(file_path, low_memory=False)
+    return data
 
-    good_score, bad_score = 0.0, 0.0
-    for n in GOOD:
-        val = row.get(n, 0) or 0
-        ref = dv.get(n, 1)
-        good_score += min(100, (val/ref)*100)
-    for n in BAD:
-        val = row.get(n, 0) or 0
-        ref = dv.get(n, 1)
-        bad_score += min(100, (val/ref)*100)
-    return good_score - bad_score
+def standardize_text_column(data, column_name):
+    """
+    Convert column to string and remove extra whitespace.
+    This ensures consistent text matching (e.g., "Pizza" vs "PIZZA" vs "pizza")
+    """
+    data[column_name] = data[column_name].astype(str).str.strip()
+    return data
 
-# ===================== Build mapping & matrices =====================
+# ===== BUILD ITEM MAPPING =====
 
-def build_item_mapping(df: pd.DataFrame, item_col: str = "description", save_path: Path = ITEM_MAP_CSV) -> Tuple[Dict[str,int], List[str]]:
-    valid_items = sorted(df[item_col].astype(str).unique())
-    item_to_idx = {item: idx for idx, item in enumerate(valid_items)}
-    mapping_df = pd.DataFrame({"item": valid_items, "item_idx": range(len(valid_items))})
-    ensure_dir(save_path)
-    mapping_df.to_csv(save_path, index=False)
-    print(f"✓ Item mapping: {len(valid_items)} items → {save_path}")
-    return item_to_idx, valid_items
+def create_item_mapping(data, output_file):
+    """
+    Create unique list of all meal items and assign each an index number.
+    
+    Why we need this: Machine learning models understand numbers, not text.
+    This creates a dictionary that translates meal names to numbers.
+    
+    Input: Raw sales data with 'description' column containing meal names
+    Output: CSV file mapping meal names to unique indices (0, 1, 2, ...)
+    """
+    print("Creating item mapping.")
+    
+    # Get unique items from description column
+    # Example: ["CHICKEN TENDERS", "PIZZA", "SALAD", "CHICKEN TENDERS"] → ["CHICKEN TENDERS", "PIZZA", "SALAD"]
+    unique_items = sorted(data['description'].unique())
+    
+    # Create mapping dictionary: meal_name -> index_number
+    item_to_index = {}
+    for index, item_name in enumerate(unique_items):
+        item_to_index[item_name] = index  # "CHICKEN TENDERS" - 0, "PIZZA" - 1, etc.
+    
+    # Save mapping to CSV file
+    create_directory_if_needed(output_file)
+    mapping_df = pd.DataFrame({
+        "item": unique_items,        # Meal names
+        "item_idx": range(len(unique_items))  # Corresponding numbers
+    })
+    mapping_df.to_csv(output_file, index=False)
+    
+    num_items = len(unique_items)
+    print(f"Created item mapping: {num_items} unique meal items")
+    print(f"Saved to {output_file}")
+    
+    return item_to_index, unique_items
 
-def build_action_matrix(merged: pd.DataFrame, item_to_idx: Dict[str,int],
-                        *, item_col: str = "description", time_slot_col: str = "time_slot_id") -> np.ndarray:
-    if time_slot_col not in merged.columns: raise KeyError(f"Missing '{time_slot_col}'")
-    if item_col not in merged.columns:      raise KeyError(f"Missing '{item_col}'")
+# ===== BUILD TIME SLOT MAPPING =====
 
-    num_items = len(item_to_idx)
-    tmax = int(pd.to_numeric(merged[time_slot_col], errors="coerce").max())
-    num_time_slots = tmax + 1
-    action = np.zeros((num_time_slots, num_items), dtype=int)
+def create_time_slot_mapping(data, output_file):
+    """
+    Create unique ID for each (date, school, meal_time) combination.
+    
+    Why we need this: Each unique combination represents one decision point
+    where the cafeteria had to choose which meals to serve.
+    
+    Input: Raw data with date, school_name, and time_of_day columns
+    Output: CSV mapping time slots to unique IDs and lookup dictionary
+    """
+    print("Creating time slot mapping...")
+    
+    # Standardize text columns to ensure consistent matching
+    data = data.copy()
+    data = standardize_text_column(data, 'date')
+    data = standardize_text_column(data, 'school_name')
+    data = standardize_text_column(data, 'time_of_day')
+    
+    # Get unique combinations of date + school + meal time
+    # Example: (2025-03-03, COLVIN_RUN_ELEMENTARY, breakfast)
+    unique_combinations = data[['date', 'school_name', 'time_of_day']].drop_duplicates()
+    unique_combinations = unique_combinations.sort_values(['date', 'school_name', 'time_of_day'])
+    unique_combinations = unique_combinations.reset_index(drop=True)
+    
+    # Assign time slot ID to each combination (0, 1, 2, ...)
+    unique_combinations['time_slot_id'] = range(len(unique_combinations))
+    
+    # Save to CSV
+    create_directory_if_needed(output_file)
+    unique_combinations.to_csv(output_file, index=False)
+    
+    num_slots = len(unique_combinations)
+    print(f"Created time slot mapping: {num_slots} unique time slots")
+    print(f"Saved to {output_file}")
+    
+    # Create lookup dictionary for quick access
+    # Key: (date, school, time_of_day), Value: time_slot_id
+    time_slot_lookup = {}
+    for idx, row in unique_combinations.iterrows():
+        key = (row['date'], row['school_name'], row['time_of_day'])
+        time_slot_lookup[key] = int(row['time_slot_id'])
+    
+    return time_slot_lookup, unique_combinations
 
-    for t, items in merged.groupby(time_slot_col)[item_col].unique().items():
-        ti = int(t)
-        for it in items:
-            idx = item_to_idx.get(str(it))
-            if idx is not None: action[ti, idx] = 1
+# ===== BUILD ACTION MATRIX =====
 
-    total_possible = num_time_slots * num_items
-    coverage = 100 * action.sum() / total_possible if total_possible else 0
-    print(f"✓ Action matrix: {num_time_slots}×{num_items} (coverage {coverage:.1f}%)")
-    return action
+def create_action_matrix(data, item_to_index, time_slot_lookup, output_file):
+    """
+    Create availability matrix showing which items were served at each time slot.
+    
+    Why we need this: The model needs to know which meals were actually available
+    to choose from at each decision point.
+    
+    Matrix format: action_matrix[time_slot][item] = 1 if available, 0 if not
+    
+    Input: 
+      - data: Raw sales data
+      - item_to_index: Mapping from meal names to numbers
+      - time_slot_lookup: Mapping from time slots to IDs
+    Output: CSV file with availability matrix
+    """
+    print("Creating action matrix")
+    
+    # Clean and standardize data
+    data = data.copy()
+    data = standardize_text_column(data, 'date')
+    data = standardize_text_column(data, 'school_name')
+    data = standardize_text_column(data, 'time_of_day')
+    data = standardize_text_column(data, 'description')
+    
+    num_items = len(item_to_index)        # Total number of unique meal items
+    num_time_slots = len(time_slot_lookup) # Total number of time slots
+    
+    # Create empty matrix: time_slots * items, initialized to 0 (not available)
+    action_matrix = np.zeros((num_time_slots, num_items), dtype=int)
+    
+    # Assign time slot ID to each row in the data
+    data['time_slot_key'] = list(zip(data['date'], data['school_name'], data['time_of_day']))
+    data['time_slot_id'] = data['time_slot_key'].map(time_slot_lookup)
+    
+    # Fill matrix: for each time slot, mark which items were available
+    for time_slot_id, group in data.groupby('time_slot_id'):
+        time_slot_id = int(time_slot_id)
+        # For each unique meal served in this time slot
+        for item_name in group['description'].unique():
+            item_idx = item_to_index.get(str(item_name))
+            if item_idx is not None:
+                # Mark this item as available at this time slot
+                action_matrix[time_slot_id, item_idx] = 1
+    
+    # Convert to DataFrame for saving
+    create_directory_if_needed(output_file)
+    action_df = pd.DataFrame(action_matrix, columns=[f"item_{i}" for i in range(num_items)])
+    action_df['time_slot_id'] = range(num_time_slots)  # Add time slot IDs
+    
+    # Reorder columns: time_slot_id first, then items
+    column_order = ['time_slot_id'] + [f"item_{i}" for i in range(num_items)]
+    action_df = action_df[column_order]
+    action_df.to_csv(output_file, index=False)
+    
+    # Calculate coverage: percentage of cells that are 1 (items available)
+    coverage_percent = 100 * action_matrix.sum() / (num_time_slots * num_items)
+    print(f"Created action matrix: {num_time_slots} time slots * {num_items} items")
+    print(f"Coverage: {coverage_percent:.1f}% (percentage of possible servings)")
+    print(f"Saved to {output_file}")
+    
+    return action_matrix
 
-def save_action_matrix(action: np.ndarray, save_path: Path, item_to_idx: Dict[str,int]) -> None:
-    nT, nI = action.shape
-    df = pd.DataFrame(action, columns=[f"item_{i}" for i in range(nI)])
-    df["time_slot_id"] = range(nT)
-    df = df[["time_slot_id"] + [c for c in df.columns if c.startswith("item_")]]
-    ensure_dir(save_path)
-    df.to_csv(save_path, index=False)
-    print(f"✓ Saved action matrix → {save_path}")
+# ===== BUILD FEATURE MATRIX =====
 
-def build_feature_matrix(df_merged: pd.DataFrame, item_to_idx: Dict[str,int], *,
-                         item_col: str = "description",
-                         use_time_slot_id: bool = True,
-                         cat_cols: List[str] = None,
-                         cyc7_cols: List[str] = None,
-                         num_cols: List[str] = None,
-                         default_nutrients: List[str] = None,
-                         add_bias: bool = False
-                         ) -> Tuple[np.ndarray, List[str], pd.DataFrame, Dict[int,np.ndarray], Dict[str,Any]]:
-    if cat_cols is None:  cat_cols = []
-    if cyc7_cols is None: cyc7_cols = []
-    if num_cols is None:  num_cols = []
-    if default_nutrients is None:
-        default_nutrients = ["GramsPerServing","Calories","Protein","Total Carbohydrate","Dietary Fiber",
-                             "Total Sugars","Added Sugars","Total Fat","Saturated Fat","Trans Fat",
-                             "Cholesterol","Sodium","Vitamin D (D2 + D3)","Calcium","Iron","Potassium",
-                             "Vitamin A","Vitamin C"]
+def standardize_features(values):
+    """
+    Convert values to z-scores (standardized scores).
+    
+    Why we do this: Puts all nutritional features on the same scale (mean=0, std=1).
+    This prevents features with large values (like Calories) from dominating
+    features with small values (like Vitamin C).
+    
+    Formula: z-score = (value - mean) / standard_deviation
+    """
+    mean = np.nanmean(values)
+    std_dev = np.nanstd(values)
+    
+    # Handle edge case where std_dev is 0 or NaN (all values same)
+    if not np.isfinite(std_dev) or std_dev < 1e-8:
+        std_dev = 1.0
+    
+    # Compute z-scores
+    z_scores = (values - mean) / std_dev
+    
+    return z_scores
 
-    def _lower_map(df: pd.DataFrame) -> Dict[str,str]:
-        return {c.lower(): c for c in df.columns}
+def create_feature_matrix(data, item_to_index, time_slot_lookup, output_file):
+    """
+    Create feature matrix with nutritional values for each meal serving.
+    
+    Why we need this: Provides the "context" for machine learning - the nutritional
+    characteristics that might influence meal popularity.
+    
+    Each row represents one meal serving at one time slot.
+    Each column represents one nutritional feature (standardized).
+    
+    Input: Raw data with nutritional information
+    Output: CSV with feature matrix for machine learning
+    """
+    print("Creating feature matrix...")
+    
+    # Clean and standardize data
+    data = data.copy()
+    data = standardize_text_column(data, 'date')
+    data = standardize_text_column(data, 'school_name')
+    data = standardize_text_column(data, 'time_of_day')
+    data = standardize_text_column(data, 'description')
+    
+    # Assign time slot IDs
+    data['time_slot_key'] = list(zip(data['date'], data['school_name'], data['time_of_day']))
+    data['time_slot_id'] = data['time_slot_key'].map(time_slot_lookup)
+    
+    # Keep only meals that have valid time slot IDs and are in our item mapping
+    data = data.dropna(subset=['time_slot_id'])
+    data['time_slot_id'] = data['time_slot_id'].astype(int)
+    data = data[data['description'].isin(item_to_index.keys())].copy()
+    
+    # Build feature matrix from nutritional data
+    feature_data = {}  # Dictionary to store each feature column
+    
+    for nutrient in nutrient_columns:
+        if nutrient in data.columns:
+            # Convert to numeric, handle missing values
+            values = pd.to_numeric(data[nutrient], errors='coerce').to_numpy()
+            
+            # Replace NaN values with median (middle value)
+            if np.isnan(values).any():
+                median_val = np.nanmedian(values)
+                values = np.where(np.isnan(values), median_val, values)
+            
+            # Standardize to z-scores
+            z_scores = standardize_features(values)
+            feature_data[f"{nutrient}_z"] = z_scores  # _z indicates z-scored
+    
+    # Create final feature matrix by stacking all feature columns
+    feature_matrix = np.column_stack(list(feature_data.values())).astype(np.float32)
+    
+    # Prepare output dataframe with metadata and features
+    feature_df = pd.DataFrame(feature_matrix, columns=list(feature_data.keys()))
+    feature_df['time_slot_id'] = data['time_slot_id'].values    # Which time slot
+    feature_df['item'] = data['description'].values             # Which meal
+    feature_df['item_idx'] = data['description'].map(item_to_index).astype(int).values  # Meal number
+    
+    # Reorder columns: metadata first, then nutritional features
+    metadata_cols = ['time_slot_id', 'item', 'item_idx']
+    feature_cols = list(feature_data.keys())
+    feature_df = feature_df[metadata_cols + feature_cols]
+    
+    # Save to CSV
+    create_directory_if_needed(output_file)
+    feature_df.to_csv(output_file, index=False)
+    
+    num_rows = len(feature_df)
+    num_features = len(feature_cols)
+    print(f"Created feature matrix: {num_rows} meal servings * {num_features} nutritional features")
+    print(f"Saved to {output_file}")
+    
+    return feature_matrix
 
-    def _z(x: np.ndarray) -> Tuple[np.ndarray,float,float]:
-        mu = float(np.nanmean(x)); sd = float(np.nanstd(x))
-        if not np.isfinite(sd) or sd < 1e-8: sd = 1.0
-        return (x - mu)/sd, mu, sd
-
-    df = df_merged.copy()
-    df[item_col] = df[item_col].astype(str)
-    df = df[df[item_col].isin(item_to_idx.keys())].copy()
-
-    if use_time_slot_id and "time_slot_id" in df.columns:
-        df = df.rename(columns={"time_slot_id":"t"})
-    elif "t" not in df.columns:
-        raise KeyError("Need 'time_slot_id' or precomputed 't'")
-    df["t"] = pd.to_numeric(df["t"], errors="coerce").astype(int)
-
-    cmap = _lower_map(df)
-    cat_used = [c for c in (cat_cols or []) if c in df.columns]
-    cyc_used = [c for c in (cyc7_cols or []) if c in df.columns]
-    num_used = [c for c in (num_cols or []) if c in df.columns]
-    nutr_used = [cmap[n.lower()] for n in default_nutrients if n.lower() in cmap]
-
-    blocks, names = [], []
-    if add_bias:
-        blocks.append(np.ones((len(df),1), dtype=float)); names.append("bias")
-
-    # categorical OHE
-    for col in cat_used:
-        ohe = pd.get_dummies(df[col].astype(str), prefix=col)
-        if ohe.shape[1] > 0:
-            blocks.append(ohe.to_numpy(dtype=float)); names.extend(ohe.columns.tolist())
-
-    # cyclical 7-day
-    for col in cyc_used:
-        v = pd.to_numeric(df[col], errors="coerce").to_numpy()
-        v = np.where((v>=1) & (v<=7), v-1, v)
-        ang = 2*np.pi*(v/7.0)
-        blocks.append(np.sin(ang).reshape(-1,1)); names.append(f"{col}_sin")
-        blocks.append(np.cos(ang).reshape(-1,1)); names.append(f"{col}_cos")
-
-    # numeric z-scores
-    for col in num_used:
-        x = pd.to_numeric(df[col], errors="coerce").to_numpy()
-        if np.isnan(x).any(): x = np.where(np.isnan(x), float(np.nanmedian(x)), x)
-        z, _, _ = _z(x); blocks.append(z.reshape(-1,1)); names.append(f"{col}_z")
-
-    # nutrient z-scores
-    for col in nutr_used:
-        x = pd.to_numeric(df[col], errors="coerce").to_numpy()
-        if np.isnan(x).any(): x = np.where(np.isnan(x), float(np.nanmedian(x)), x)
-        z, _, _ = _z(x); blocks.append(z.reshape(-1,1)); names.append(f"{col}_z")
-
-    X = np.concatenate(blocks, axis=1).astype(np.float32) if blocks else np.zeros((len(df),0), dtype=np.float32)
-
-    rows_df = df[["t", item_col]].copy()
-    rows_df.columns = ["t","description"]
-    rows_df["item_idx"] = rows_df["description"].map(item_to_idx).astype(int)
-
-    groups = {int(t): idx.to_numpy(dtype=int) for t, idx in rows_df.groupby("t").groups.items()}
-
-    meta = {"n_features": X.shape[1], "n_samples": X.shape[0], "n_timesteps": len(groups),
-            "used_cat": cat_used, "used_cyc7": cyc_used, "used_num": num_used,
-            "used_nutrients": nutr_used, "feature_names": names}
-    print(f"✓ Feature matrix: {X.shape[0]} rows × {X.shape[1]} features "
-          f"({len(cat_used)} cat, {len(cyc_used)} cyc, {len(num_used)} num, {len(nutr_used)} nutr)")
-    return X, names, rows_df, groups, meta
-
-def save_feature_matrix(X: np.ndarray, feature_names: List[str], rows_df: pd.DataFrame, save_path: Path) -> None:
-    n_rows, n_feats = X.shape
-    if len(feature_names) != n_feats:
-        raise ValueError(f"feature_names ({len(feature_names)}) != n_features ({n_feats})")
-    need = {"t","description","item_idx"}
-    if need - set(rows_df.columns):
-        raise KeyError(f"rows_df missing: {need - set(rows_df.columns)}")
-    df = pd.DataFrame(X, columns=feature_names)
-    df["time_slot_id"] = rows_df["t"].values
-    df["item"] = rows_df["description"].values
-    df["item_idx"] = rows_df["item_idx"].values
-    meta_cols = ["time_slot_id","item","item_idx"]
-    df = df[meta_cols + [c for c in df.columns if c not in meta_cols]]
-    ensure_dir(save_path)
-    df.to_csv(save_path, index=False)
-    print(f"✓ Saved feature matrix → {save_path}")
-
-# ===================== Reward builder (with extra columns) =====================
-
-def build_and_save_rewards(feature_csv: Path, merged_csv: Path, out_csv: Path, lambda_h: float = 0.1) -> None:
-    feat = pd.read_csv(feature_csv, low_memory=False)
-    rows_df = feat[["time_slot_id","item","item_idx"]].rename(columns={"time_slot_id":"t","item":"description"}).copy()
-    rows_df["t"] = pd.to_numeric(rows_df["t"], errors="coerce").astype(int)
-    rows_df["description"] = rows_df["description"].astype(str)
-
-    merged = pd.read_csv(merged_csv, low_memory=False)
-    merged = merged.rename(columns={"time_slot_id":"t"})
-    merged["t"] = pd.to_numeric(merged["t"], errors="coerce").astype(int)
-    merged["description"] = merged["description"].astype(str)
-
-    # Aggregate to avoid dupes per (t, description); also collect context you asked for
-    agg = (merged.groupby(["t","description"], as_index=False)
-                 .agg(total=("total","sum"),
-                      HealthScore=("HealthScore","median"),
-                      school_code=("school_code","first"),
-                      school_name=("school_name","first"),
-                      time_of_day=("time_of_day","first"),
-                      day_name=("day_name","first")))
-
-    aligned = rows_df.merge(agg, on=["t","description"], how="left", validate="m:1")
-    aligned["total"] = pd.to_numeric(aligned["total"], errors="coerce").fillna(0.0)
-    aligned["HealthScore"] = pd.to_numeric(aligned["HealthScore"], errors="coerce")
-    hs = aligned["HealthScore"].to_numpy(dtype=float)
-    hs = np.where(np.isnan(hs), np.nanmedian(hs), hs)
-
-    mu = float(np.nanmean(hs)); sd = float(np.nanstd(hs))
-    if not np.isfinite(sd) or sd < 1e-8: sd = 1.0
-    hs_z = (hs - mu) / sd
-
-    reward = aligned["total"].to_numpy(dtype=float) + (lambda_h * hs_z)
-
-    out = aligned[["t","item_idx","description","school_code","school_name","time_of_day","day_name"]].copy()
-    out["reward"] = reward
-
-    ensure_dir(out_csv)
-    out.to_csv(out_csv, index=False)
-    print(f"✓ Rewards saved → {out_csv}  (cols: {list(out.columns)})")
-
-# ===================== Main =====================
+# ===== MAIN EXECUTION =====
 
 def main():
-    ensure_dir(DATA_DIR)
-
-    # Load merged once
-    merged = load_data(MERGED_CSV, text_col="description")
-
-    # Item mapping
-    if ITEM_MAP_CSV.exists() and not OVERWRITE:
-        item_map_df = pd.read_csv(ITEM_MAP_CSV)
-        item_to_idx = dict(zip(item_map_df["item"].astype(str), item_map_df["item_idx"].astype(int)))
-        print(f"• Using existing item mapping: {ITEM_MAP_CSV}")
+    """
+    Main function: Transform raw FCPS sales data into structured matrices for machine learning.
+    
+    This pipeline creates 4 essential files:
+    1. item_mapping.csv - Translates meal names to numbers
+    2. time_slot_mapping.csv - Organizes serving times into slots  
+    3. action_matrix.csv - Shows what was available when
+    4. feature_matrix.csv - Nutritional context for machine learning
+    """
+    print("=" * 70)
+    print("BUILDING FCPS DATA MATRICES")
+    print("=" * 70)
+    print("Transforming raw cafeteria data into machine learning format")
+    print()
+    
+    # ===== STEP 1: LOAD RAW DATA =====
+    print("[1/5] Loading raw sales data.")
+    sales_data = load_sales_data(input_csv)
+    print(f"Loaded {len(sales_data)} rows of raw sales data")
+    print("Columns available:", list(sales_data.columns))
+    print()
+    
+    # ===== STEP 2: BUILD ITEM MAPPING =====
+    print("[2/5] Building item mapping.")
+    if item_mapping_file.exists() and not overwrite_existing:
+        print("Item mapping already exists, skipping rebuild")
+        # Load existing mapping
+        item_map_df = pd.read_csv(item_mapping_file)
+        item_to_index = dict(zip(item_map_df['item'].astype(str), item_map_df['item_idx'].astype(int)))
     else:
-        item_to_idx, _ = build_item_mapping(merged, item_col="description", save_path=ITEM_MAP_CSV)
-
-    # Action matrix
-    if ACTION_CSV.exists() and not OVERWRITE:
-        print(f"• Using existing action matrix: {ACTION_CSV}")
+        print("Building new item mapping.")
+        item_to_index, unique_items = create_item_mapping(sales_data, item_mapping_file)
+    print()
+    
+    # ===== STEP 3: BUILD TIME SLOT MAPPING =====
+    print("[3/5] Building time slot mapping.")
+    if time_slot_mapping_file.exists() and not overwrite_existing:
+        print("Time slot mapping already exists, skipping rebuild")
+        # Load existing mapping
+        time_slot_df = pd.read_csv(time_slot_mapping_file)
+        time_slot_lookup = dict(zip(
+            zip(time_slot_df['date'].astype(str), 
+                time_slot_df['school_name'].astype(str), 
+                time_slot_df['time_of_day'].astype(str)),
+            time_slot_df['time_slot_id'].astype(int)
+        ))
     else:
-        action = build_action_matrix(merged, item_to_idx, item_col="description", time_slot_col="time_slot_id")
-        save_action_matrix(action, ACTION_CSV, item_to_idx)
-
-    # Feature matrix
-    if FEATURE_CSV.exists() and not OVERWRITE:
-        print(f"• Using existing feature matrix: {FEATURE_CSV}")
+        print("Building new time slot mapping.")
+        time_slot_lookup, time_slot_combos = create_time_slot_mapping(sales_data, time_slot_mapping_file)
+    print()
+    
+    # ===== STEP 4: BUILD ACTION MATRIX =====
+    print("[4/5] Building action matrix.")
+    if action_matrix_file.exists() and not overwrite_existing:
+        print("Action matrix already exists, skipping rebuild")
     else:
-        # Keep your earlier minimal feature set (nutrients only).
-        X, names, rows_df, groups, meta = build_feature_matrix(
-            df_merged=merged,
-            item_to_idx=item_to_idx,
-            item_col="description",
-            use_time_slot_id=True,
-            cat_cols=[],            # set to ["school_name","time_of_day"] if you want those included
-            cyc7_cols=[],           # set to ["day_of_week"] if you want sin/cos
-            num_cols=[],            # set to ["HealthScore"] to include it directly
-            default_nutrients=None, # uses default list inside
-            add_bias=False
-        )
-        save_feature_matrix(X, names, rows_df, FEATURE_CSV)
-
-    # Rewards with extra columns (school_code/name/time_of_day/day_name)
-    build_and_save_rewards(FEATURE_CSV, MERGED_CSV, REWARD_CSV, lambda_h=LAMBDA_H)
-
+        print("Building new action matrix.")
+        action_matrix = create_action_matrix(sales_data, item_to_index, time_slot_lookup, action_matrix_file)
+    print()
+    
+    # ===== STEP 5: BUILD FEATURE MATRIX =====
+    print("[5/5] Building feature matrix.")
+    if feature_matrix_file.exists() and not overwrite_existing:
+        print("Feature matrix already exists, skipping rebuild")
+    else:
+        print("Building new feature matrix.")
+        feature_matrix = create_feature_matrix(sales_data, item_to_index, time_slot_lookup, feature_matrix_file)
+    print()
+    
+    
 if __name__ == "__main__":
     main()
-'''
-Because we want each item’s healthiness to be measured relative to the whole population of items, not just what was served in one cafeteria on one day.
-Step-by-step what actually happens
-Let’s say your full fcps_data_with_timestamps.csv has 224,000 rows.
-When the code runs:
-hs = aligned["HealthScore"].to_numpy(dtype=float)
-hs_mu = np.nanmean(hs)
-hs_sd = np.nanstd(hs)
-hs_z = (hs - hs_mu) / hs_sd
-Here’s what that means:
-It collects all HealthScores for all rows (each row = one (time_slot_id, item) pair).
-So it might look like: [3.1, 3.3, 2.9, 4.8, 3.7, …]
-Then it computes:
-mean = 3.6
-std = 0.5
-Then it transforms every HealthScore:
-For example: z = (3.8 – 3.6) / 0.5 = +0.4
-So each item now says, “I’m +0.4 healthier than the average item in the whole dataset.”
-So every HealthScore becomes a relative health value, comparable across all contexts.
-But what happens within Monday or a specific school?
-The context (Monday / school / time of day) still matters —
-but it lives in your feature_matrix.csv, not in the z-score computation.
-So when you compute rewards, the model still knows:
-This row is Colvin Run Elementary
-This time is Monday breakfast
-This item is Cereal Meal
-Health z-score = +0.4 (healthier than average)
-Total sold = 19
-→ reward = 19 + 0.1 × 0.4 = 19.04
-At another time slot (say, Tuesday lunch at a different school), the same item might have the same z-score (+0.4) but a different sales count, so its reward will change (e.g., 28 + 0.1 × 0.4 = 28.04).
-So:
-The z-score part is global (how healthy an item is overall)
-The sales (total) part is context-specific (how well it performed that day, at that school, during that meal)
-When you combine them:
-Reward = context-specific popularity + small boost/penalty for global healthiness.
- Analogy
-Think of it like movie ratings 🎬:
-The z-score is like a movie’s IMDB rating (global quality across all viewers).
-The sales are like its ticket sales at a particular cinema on Monday.
-The reward combines both — a movie that sells well and is high-rated gets the highest reward.
-TL;DR
-Concept	Scope	Why
-HealthScore mean/std	Global (across all data)	So each item’s health value is relative to all items
-total sales	Local (per time slot / school / day)	Reflects actual performance that day
-reward = total + λ × z(HealthScore)	Combines global health + local popularity	Gives one numeric signal to the bandit
-Context (school, day, time)	Stored in feature_matrix.csv	Keeps reward aligned with its scenario
-So when you see each number in reward.csv,
-it represents “How this specific item performed in its specific time slot, plus a small health boost based on its overall nutritional standing.”
-
-'''

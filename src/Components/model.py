@@ -1,3 +1,7 @@
+# ===== model.py =====
+# Purpose: LinUCB algorithm for contextual bandits
+# This is the machine learning model that learns which items to recommend
+
 import os
 import joblib
 import numpy as np
@@ -6,130 +10,250 @@ from typing import Dict, List, Tuple
 
 class LinUCB:
     """
-    Per-arm linear UCB for contextual bandits.
+    Linear Upper Confidence Bound (LinUCB) algorithm.
+    Used for contextual multi-armed bandits.
+    
+    For each item (arm), we maintain:
+    - A: A matrix for solving linear equations (d x d)
+    - b: A vector for reward tracking (d x 1)
     """
-
-    def __init__(self, d: int, n_arms: int, alpha: float = 1.0, l2: float = 1.0, seed: int = 42):
+    
+    def __init__(self, d, n_arms, alpha=1.0, l2=1.0, seed=42):
+        """
+        Initialize the LinUCB model.
+        
+        # d = number of features (18 nutritional dimensions)
+        # n_arms = number of meal items (160 items)
+        # alpha = exploration parameter (how much to try new things)
+        # l2 = regularization (prevects overfitting)
+        seed: random seed for reproducibility
+        """
         self.d = int(d)
         self.n_arms = int(n_arms)
         self.alpha = float(alpha)
         self.l2 = float(l2)
-        self.rng = np.random.default_rng(seed)
+        self.random_state = np.random.default_rng(seed)
+        
         self.reset()
-
-    # ---------- internals ----------
-    def _theta(self, a: int) -> np.ndarray:
-        # stable solve: A theta = b
-        return np.linalg.solve(self.A[a], self.b[a]).reshape(-1)
-
-    def _ucb(self, a: int, x: np.ndarray) -> float:
-        theta = self._theta(a)
-        est = float(theta @ x)
-        Ax = np.linalg.solve(self.A[a], x)  # A^{-1} x
-        conf = float(self.alpha * np.sqrt(max(0.0, x @ Ax)))
-        return est + conf
-
-    # ---------- API ----------
-    def reset(self) -> None:
-        self.A = [self.l2 * np.eye(self.d, dtype=np.float64) for _ in range(self.n_arms)]
-        self.b = [np.zeros((self.d, 1), dtype=np.float64) for _ in range(self.n_arms)]
+    
+    def reset(self):
+        """Initialize or reset all arm parameters"""
+        self.A_matrices = [self.l2 * np.eye(self.d, dtype=np.float64) for _ in range(self.n_arms)]
+        self.b_vectors = [np.zeros((self.d, 1), dtype=np.float64) for _ in range(self.n_arms)]
         self.total_reward = 0.0
         self.oracle_reward = 0.0
-        self.steps = 0
-
-    def action(self, available_arms: List[int], x_by_arm: Dict[int, np.ndarray]) -> int:
-        best_arm, best_val = None, -1e18
-        for a in available_arms:
-            x = x_by_arm[a].reshape(-1)
-            val = self._ucb(a, x)
-            if val > best_val:
-                best_val, best_arm = val, a
+        self.steps_trained = 0
+    
+    def compute_theta(self, arm_id):
+        """
+        # Solves: theta = A⁻¹ * b
+        # Returns: Weight vector showing feature importance
+        # Theta represents the model's "understanding" of each meal's appeal
+        """
+        theta = np.linalg.solve(self.A_matrices[arm_id], self.b_vectors[arm_id])
+        return theta.reshape(-1)
+    
+    def compute_upper_confidence_bound(self, arm_id, features):
+        """
+        # estimated_value = theta · features (what we've learned)
+        # confidence_width = alpha * √(features · A⁻¹ · features) (uncertainty bonus)
+        # return estimated_value + confidence_width
+        # why - Balances exploitation (choose what works) vs exploration (try new things)
+        """
+        theta = self.compute_theta(arm_id)
+        estimated_value = float(theta @ features)
+        
+        # Compute confidence interval width
+        A_inv_features = np.linalg.solve(self.A_matrices[arm_id], features)
+        confidence_width = float(self.alpha * np.sqrt(max(0.0, features @ A_inv_features)))
+        
+        ucb_score = estimated_value + confidence_width
+        return ucb_score
+    
+    def select_action(self, available_arms, features_by_arm):
+        """
+        Select which arm (meal) to recommend.
+        Choose arm with highest UCB score.
+        
+        available_arms: list of arm IDs available at this time slot
+        features_by_arm: dict mapping arm_id to feature vector
+        """
+        best_arm = None
+        best_score = -1e18
+        
+        for arm_id in available_arms:
+            features = features_by_arm[arm_id].reshape(-1)
+            score = self.compute_upper_confidence_bound(arm_id, features)
+            
+            if score > best_score:
+                best_score = score
+                best_arm = arm_id
+        
+        # If no arm found, pick randomly
         if best_arm is None:
-            best_arm = self.rng.choice(available_arms)
+            best_arm = self.random_state.choice(available_arms)
+        
         return int(best_arm)
-
-    def calculate_reward(self, r: float) -> float:
-        return float(r)
-
-    def update(self, a: int, x: np.ndarray, r: float) -> None:
-        x = x.reshape(-1, 1)
-        self.A[a] += x @ x.T
-        self.b[a] += r * x
-
-    def train(self, X: np.ndarray, rows_df: pd.DataFrame, rewards: np.ndarray, avail_mat: np.ndarray,
-              verbose: bool = False) -> Dict[str, float]:
-        # ---- column name robustness: accept either 'time_slot_id' or 't'
-        time_col = "time_slot_id" if "time_slot_id" in rows_df.columns else ("t" if "t" in rows_df.columns else None)
-        if time_col is None:
-            raise KeyError("rows_df must contain 'time_slot_id' or 't'")
-
-        # ---- basic shape/align checks
+    
+    def update_arm(self, arm_id, features, reward):
+        """
+        Update arm parameters after observing a reward.
+        
+        A = A + features * features^T
+        b = b + reward * features
+        """
+        features = features.reshape(-1, 1)
+        self.A_matrices[arm_id] += features @ features.T
+        self.b_vectors[arm_id] += reward * features
+    
+    def train(self, X, rows_df, rewards, avail_mat, verbose=False):
+        """
+        Train the model on historical data.
+        
+        X: feature matrix (samples x features)
+        rows_df: metadata with time_slot_id and item_idx
+        rewards: reward values (one per sample)
+        avail_mat: availability matrix (time_slots x items)
+        """
+        
+        # Validate inputs
         if X.shape[0] != len(rows_df):
-            raise ValueError(f"X rows ({X.shape[0]}) != rows_df rows ({len(rows_df)})")
-        if rewards.shape[0] != len(rows_df):
-            raise ValueError(f"rewards length ({rewards.shape[0]}) != rows_df rows ({len(rows_df)})")
+            raise ValueError(f"X has {X.shape[0]} rows but rows_df has {len(rows_df)} rows")
+        if len(rewards) != len(rows_df):
+            raise ValueError(f"rewards has {len(rewards)} rows but rows_df has {len(rows_df)} rows")
         if avail_mat.shape[1] != self.n_arms:
-            raise ValueError(f"avail_mat n_arms ({avail_mat.shape[1]}) != model.n_arms ({self.n_arms})")
-
-        # group indices by time slot
-        groups = {int(t): np.array(list(idxs), dtype=int)
-                  for t, idxs in rows_df.groupby(time_col).groups.items()}
-
-        total, oracle, steps = 0.0, 0.0, 0
-        for t in sorted(groups.keys()):
-            ridxs = groups[t]
-            if t >= avail_mat.shape[0]:
-                # if an unseen t slips in, skip gracefully
+            raise ValueError(f"avail_mat has {avail_mat.shape[1]} arms but model has {self.n_arms}")
+        
+        # Group samples by time slot
+        groups = {}
+        for time_slot_id, group_indices in rows_df.groupby('time_slot_id').groups.items():
+            groups[int(time_slot_id)] = np.array(list(group_indices), dtype=int)
+        
+        total_reward = 0.0
+        oracle_reward = 0.0
+        steps = 0
+        
+        # Process each time slot in order
+        for time_slot_id in sorted(groups.keys()):
+            sample_indices = groups[time_slot_id]
+            
+            # Check if time slot is in availability matrix
+            if time_slot_id >= avail_mat.shape[0]:
                 continue
-            available = np.where(avail_mat[t] == 1)[0].tolist()
-            if not available:
+            
+            # Get available items at this time slot
+            available_items = np.where(avail_mat[time_slot_id] == 1)[0].tolist()
+            if not available_items:
                 continue
-
-            x_by_arm, r_by_arm = {}, {}
-            for ridx in ridxs:
-                a = int(rows_df.iloc[ridx]["item_idx"])
-                if a in available:
-                    x_by_arm[a] = X[ridx]
-                    r_by_arm[a] = float(rewards[ridx])
-
-            if not x_by_arm:
+            
+            # Get features and rewards for available items at this time slot
+            features_for_items = {}
+            rewards_for_items = {}
+            
+            for sample_idx in sample_indices:
+                arm_id = int(rows_df.iloc[sample_idx]['item_idx'])
+                
+                if arm_id in available_items:
+                    features_for_items[arm_id] = X[sample_idx]
+                    rewards_for_items[arm_id] = float(rewards[sample_idx])
+            
+            # If no valid items, skip
+            if not features_for_items:
                 continue
-
-            a_star = self.action(list(x_by_arm.keys()), x_by_arm)
-            r = self.calculate_reward(r_by_arm[a_star])
-            self.update(a_star, x_by_arm[a_star], r)
-
-            total  += r
-            oracle += max(r_by_arm.values())
-            steps  += 1
-
+            
+            # Select best item using UCB
+            selected_arm = self.select_action(list(features_for_items.keys()), features_for_items)
+            selected_reward = rewards_for_items[selected_arm]
+            
+            # Update model with selected arm
+            self.update_arm(selected_arm, features_for_items[selected_arm], selected_reward)
+            
+            # Track metrics
+            total_reward += selected_reward
+            oracle_reward += max(rewards_for_items.values())
+            steps += 1
+            
             if verbose and steps % 1000 == 0:
-                print(f"[t={t}] steps={steps} total={total:.1f} oracle={oracle:.1f}")
-
-        self.total_reward, self.oracle_reward, self.steps = total, oracle, steps
+                print(f"[t={time_slot_id}] steps={steps} total={total_reward:.1f} oracle={oracle_reward:.1f}")
+        
+        self.total_reward = total_reward
+        self.oracle_reward = oracle_reward
+        self.steps_trained = steps
+        
+        regret = oracle_reward - total_reward
+        avg_reward = total_reward / max(1, steps)
+        
         return {
             "steps": steps,
-            "total_reward": float(total),
-            "oracle_reward": float(oracle),
-            "regret": float(oracle - total),
-            "avg_reward": float(total / max(1, steps)),
+            "total_reward": float(total_reward),
+            "oracle_reward": float(oracle_reward),
+            "regret": float(regret),
+            "avg_reward": float(avg_reward)
         }
-
-    def recommend(self, x_by_arm: Dict[int, np.ndarray], topk: int = 5) -> List[Tuple[int, float]]:
-        scores = [(a, self._ucb(a, x.reshape(-1))) for a, x in x_by_arm.items()]
-        scores.sort(key=lambda t: t[1], reverse=True)
-        return scores[:topk]
-
-    def save(self, path: str) -> None:
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True
+    
+    def get_recommendations(self, features_by_arm, top_k=5):
+        """
+        Get top K recommendations for a time slot.
+        
+        features_by_arm: dict mapping arm_id to feature vector
+        top_k: number of recommendations to return
+        
+        Returns list of (arm_id, ucb_score) tuples
+        """
+        scores = []
+        
+        for arm_id, features in features_by_arm.items():
+            score = self.compute_upper_confidence_bound(arm_id, features.reshape(-1))
+            scores.append((arm_id, score))
+        
+        # Sort by score descending
+        scores.sort(key=lambda x: x[1], reverse=True)
+        
+        return scores[:top_k]
+    
+    # -------------------------
+    # Persistence (canonical)
+    # -------------------------
+    def save_model(self, file_path):
+        """Save model to disk"""
+        os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
+        model_data = {
+            "A_matrices": self.A_matrices,
+            "b_vectors": self.b_vectors,
+            "d": self.d,
+            "n_arms": self.n_arms,
+            "alpha": self.alpha,
+            "l2": self.l2
+        }
+        joblib.dump(model_data, file_path)
+        print(f"Model saved to {file_path}")
+    
+    @classmethod
+    def load_model(cls, file_path):
+        """Load model from disk"""
+        model_data = joblib.load(file_path)
+        
+        model = cls(
+            d=model_data["d"],
+            n_arms=model_data["n_arms"],
+            alpha=model_data["alpha"],
+            l2=model_data["l2"]
         )
-        joblib.dump({"A": self.A, "b": self.b, "d": self.d, "n_arms": self.n_arms, "alpha": self.alpha, "l2": self.l2}, path)
-        print(f" Model saved to {path}")
+        
+        model.A_matrices = model_data["A_matrices"]
+        model.b_vectors = model_data["b_vectors"]
+        
+        print(f"Model loaded from {file_path}")
+        return model
+
+    # -------------------------
+    # Back-compat aliases
+    # -------------------------
+    def save(self, file_path: str):
+        """Alias for compatibility with scripts calling model.save(.)"""
+        return self.save_model(file_path)
 
     @classmethod
-    def load(cls, path: str) -> "LinUCB":
-        obj = joblib.load(path)
-        model = cls(d=obj["d"], n_arms=obj["n_arms"], alpha=obj["alpha"], l2=obj["l2"])
-        model.A, model.b = obj["A"], obj["b"]
-        print(f"Model loaded from {path}")
-        return model
+    def load(cls, file_path: str):
+        """Alias for compatibility with scripts calling LinUCB.load(.)"""
+        return cls.load_model(file_path)
