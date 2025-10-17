@@ -1,49 +1,35 @@
-# main.py
-import os
-import numpy as np
+#  main_predict.py
+# Predict for dates NOT in the historical data USING TRAINED MODEL
+
 import pandas as pd
+import numpy as np
+from datetime import datetime
+from pathlib import Path
+import sys
+import joblib
 
-from Components.env import load_data, health_score, build_action_matrix, build_feature_matrix
-from Components.model import train_linucb, evaluate
-import Components.plot as plot
+# Ensure repo root is on sys.path so Components can be imported
+sys.path.append(str(Path(__file__).parent.parent))
 
+import Components.env as env
+
+# Load environment data into env module (defaults look in src/data)
+env.load_env_data()
+
+# Main execution
 if __name__ == "__main__":
-    # ---------- Load data ----------
-    DATA_PATH = os.path.join("data", "sales.csv")
-    df = load_data(DATA_PATH)
-    print("✅ Data loaded:", df.shape)
-
-    # ---------- Add health score ----------
-    df["HealthScore"] = df.apply(health_score, axis=1)
-
-    # ---------- Build matrices ----------
-    action_matrix, all_items, item_to_idx = build_action_matrix(df, item_col="description")
-    X_all, feature_names, rows_df, groups, meta = build_feature_matrix(df, item_col="description")
-
-    # Reward definition: here we use health score
-    rewards = df["HealthScore"].to_numpy()
-
-    # ---------- Train model ----------
-    agent, actions_taken, rewards_received = train_linucb(
-        X_all, groups, rewards, alpha=1.0
+    # Use the OPTIMAL model (lambda = 0.05 from your training)
+    optimal_model_path = "src/tests/results/model_lambda_0.05.joblib"
+    
+    recommendations = env.recommend_with_trained_model(
+        target_date='2025-10-17',
+        school="ALDRIN_ELEMENTARY",
+        meal_time="lunch",
+        model_path=optimal_model_path,
+        top_k=5
     )
-
-    # ---------- Evaluate ----------
-    metrics = evaluate(actions_taken, rewards_received)
-    print("📊 Evaluation:", metrics)
-
-    # ---------- Plots ----------
-    plot.model_average_plot(
-        data=None, 
-        rewards=np.array(rewards_received), 
-        action_matrix=action_matrix, 
-        arm_means=[df.groupby("description")["HealthScore"].mean().to_numpy()],
-        top=5
-    )
-    plot.model_cumulative_plot(
-        data=None,
-        rewards=np.array(rewards_received),
-        action_matrix=action_matrix,
-        arm_means=[df.groupby("description")["HealthScore"].mean().to_numpy()],
-        top=5
-    )
+    
+    if recommendations is None:
+        print("Could not generate recommendations")
+    else:
+        env.print_enhanced_recommendations(recommendations)
