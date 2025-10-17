@@ -23,7 +23,7 @@ index_to_item = None
 
 data_dir = Path("src/data")
 input_csv = data_dir / "fcps_data_with_timestamps.csv"  # Raw sales data from FCPS
-
+df = data_dir / "data_sales_nutrition.csv"
 # Output files that will be created:
 item_mapping_file = data_dir / "item_mapping.csv"           # Maps meal names to numbers
 time_slot_mapping_file = data_dir / "time_slot_mapping.csv" # Maps time periods to IDs
@@ -281,6 +281,34 @@ def create_time_slot_mapping(data, output_file):
         time_slot_lookup[key] = int(row['time_slot_id'])
     
     return time_slot_lookup, unique_combinations
+def health_score(row: pd.Series) -> float:
+    DV = {
+        "elementary": {"Calories":1600,"Protein":19,"Total Carbohydrate":130,"Dietary Fiber":25,"Added Sugars":25,
+                       "Total Fat":40,"Saturated Fat":20,"Sodium":1500,"Vitamin D":20,"Calcium":1000,"Iron":10,
+                       "Potassium":4700,"Vitamin A":900,"Vitamin C":90},
+        "middle":     {"Calories":2200,"Protein":34,"Total Carbohydrate":130,"Dietary Fiber":31,"Added Sugars":50,
+                       "Total Fat":77,"Saturated Fat":20,"Sodium":2300,"Vitamin D":20,"Calcium":1300,"Iron":18,
+                       "Potassium":4700,"Vitamin A":900,"Vitamin C":90},
+        "high":       {"Calories":2600,"Protein":46,"Total Carbohydrate":130,"Dietary Fiber":38,"Added Sugars":50,
+                       "Total Fat":91,"Saturated Fat":20,"Sodium":2300,"Vitamin D":20,"Calcium":1300,"Iron":18,
+                       "Potassium":4700,"Vitamin A":900,"Vitamin C":90}
+    }
+    GOOD = ["Protein","Dietary Fiber","Vitamin D","Calcium","Iron","Potassium","Vitamin A","Vitamin C"]
+    BAD  = ["Added Sugars","Saturated Fat","Sodium"]
+
+    school_group = str(row.get("school_group", "high")).lower()
+    dv = DV["elementary"] if "elementary" in school_group else (DV["middle"] if "middle" in school_group else DV["high"])
+
+    good_score, bad_score = 0.0, 0.0
+    for n in GOOD:
+        val = row.get(n, 0) or 0
+        ref = dv.get(n, 1)
+        good_score += min(100, (val/ref)*100)
+    for n in BAD:
+        val = row.get(n, 0) or 0
+        ref = dv.get(n, 1)
+        bad_score += min(100, (val/ref)*100)
+    return good_score - bad_score
 
 # ===== BUILD ACTION MATRIX =====
 
@@ -467,6 +495,12 @@ def main():
     print(f"Loaded {len(sales_data)} rows of raw sales data")
     print("Columns available:", list(sales_data.columns))
     print()
+    
+    # Calculate HealthScore for each row
+    df["HealthScore"] = df.apply(health_score, axis=1)
+    output_file = "data_heathscore_mapped.csv"
+    df.to_csv(output_file, index=False)
+    print(f" Health scores calculated and saved to {output_file}")
     
     # ===== STEP 2: BUILD ITEM MAPPING =====
     print("[2/5] Building item mapping.")
