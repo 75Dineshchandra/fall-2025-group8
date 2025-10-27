@@ -7,6 +7,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple
+# Small training orchestration was removed; keep this module as the algorithm implementation only.
 
 class LinUCB:
     """
@@ -38,11 +39,21 @@ class LinUCB:
     
     def reset(self):
         """Initialize or reset all arm parameters"""
+        # Core arm parameters (A and b for each arm)
         self.A_matrices = [self.l2 * np.eye(self.d, dtype=np.float64) for _ in range(self.n_arms)]
         self.b_vectors = [np.zeros((self.d, 1), dtype=np.float64) for _ in range(self.n_arms)]
+
+        # Training bookkeeping
         self.total_reward = 0.0
         self.oracle_reward = 0.0
         self.steps_trained = 0
+
+        # Per-arm statistics for convenience (selection counts and rewards)
+        # These are optional helpers and will be kept in sync by update_arm()
+        self.N = np.zeros(self.n_arms, dtype=int)
+        self.R_sum = np.zeros(self.n_arms, dtype=float)
+        self.rewards_list = []
+        self.rewards_matrix = np.zeros((1, self.n_arms), dtype=float)
     
     def compute_theta(self, arm_id):
         """
@@ -105,6 +116,21 @@ class LinUCB:
         features = features.reshape(-1, 1)
         self.A_matrices[arm_id] += features @ features.T
         self.b_vectors[arm_id] += reward * features
+        # Update per-arm stats
+        try:
+            self.N[arm_id] += 1
+            self.R_sum[arm_id] += float(reward)
+        except Exception:
+            # In case reset wasn't called, ensure arrays exist
+            pass
+        # Record reward row (sparse row with reward at arm_id)
+        try:
+            row = np.zeros(self.n_arms, dtype=float)
+            row[arm_id] = float(reward)
+            self.rewards_matrix = np.vstack([self.rewards_matrix, row.reshape((1, -1))])
+            self.rewards_list.append(float(reward))
+        except Exception:
+            pass
     
     def train(self, X, rows_df, rewards, avail_mat, verbose=False):
         """
@@ -212,6 +238,88 @@ class LinUCB:
         scores.sort(key=lambda x: x[1], reverse=True)
         
         return scores[:top_k]
+
+    # -------------------------
+    # API compatibility wrappers
+    # -------------------------
+    def action(self, available_arms, features_by_arm):
+        """Compatibility wrapper for selecting a single action.
+
+        Mirrors the requested `action()` API and delegates to `select_action()`.
+        """
+        return self.select_action(available_arms, features_by_arm)
+
+    def update(self, arm_id, features, reward):
+        """Compatibility wrapper for updating an arm after observing reward."""
+        return self.update_arm(arm_id, features, reward)
+
+    def recommend(self, features_by_arm, top_k=5):
+        """Compatibility wrapper returning top-k recommendations as (arm_id, score).
+
+        This matches the requested `recommend()` API.
+        """
+        return self.get_recommendations(features_by_arm, top_k=top_k)
+
+    def calculate_reward(self, *args, **kwargs):
+        """Placeholder for reward calculation.
+
+        Reward computation is dataset- and experiment-specific (depends on
+        sales, health scores, lambda hyperparameter, boosts, etc.).
+        We provide a placeholder so callers see a clear place to implement
+        the bandit reward function. Implement in training script or override
+        in a subclass.
+        """
+        raise NotImplementedError(
+            "calculate_reward() is dataset-specific. Implement this in your training script or override in a subclass."
+        )
+
+    # ----- EpsilonGreedy-style bandit helper -----
+    def bandit(self, rewards_array, arm_id, sample_idx):
+        """
+        Return reward for pulling `arm_id` at sample index `sample_idx` from a 2D rewards array or 1D vector.
+
+        This mirrors the EpsilonGreedy.bandit(data, A, t) interface. If `rewards_array` is 1D, index it.
+        """
+        # If rewards_array is 1D (vector), return the corresponding value
+        arr = np.asarray(rewards_array)
+        if arr.ndim == 1:
+            R = float(arr[sample_idx]) if sample_idx < arr.shape[0] else 0.0
+            # record
+            try:
+                row = np.zeros(self.n_arms, dtype=float)
+                row[arm_id] = R
+                self.rewards_matrix = np.vstack([self.rewards_matrix, row.reshape((1, -1))])
+                self.rewards_list.append(R)
+            except Exception:
+                pass
+            return R
+
+        # If 2D, treat rows as reward vectors per timestep
+        rewards_pull = arr[sample_idx:sample_idx+1][0]
+        R = float(rewards_pull[arm_id])
+        # zero out other columns for storage (keeps format similar to EpsilonGreedy)
+        rewards_pull[:arm_id] = 0
+        rewards_pull[arm_id+1:] = 0
+        try:
+            self.rewards_matrix = np.vstack([self.rewards_matrix, rewards_pull.reshape((1, -1))])
+            self.rewards_list.append(R)
+        except Exception:
+            pass
+        return R
+
+    def create_table(self):
+        """Create a summary table of arms with selection counts and average reward."""
+        # Avoid division by zero
+        avg_reward = np.zeros_like(self.R_sum)
+        mask = self.N > 0
+        avg_reward[mask] = (self.R_sum[mask] / self.N[mask])
+        table = np.hstack([
+            np.arange(0, self.n_arms).reshape(self.n_arms, 1),
+            self.N.reshape(self.n_arms, 1),
+            avg_reward.reshape(self.n_arms, 1)
+        ]).astype(float)
+        df = pd.DataFrame(data=table, columns=["Arm", "Selections", "AvgReward"]) 
+        return df.to_string(index=False)
     
     # -------------------------
     # Persistence (canonical)

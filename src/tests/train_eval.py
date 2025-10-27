@@ -26,7 +26,7 @@ time_slot_mapping_file = data_dir / "time_slot_mapping.csv"  # Time slot definit
 
 # Directory to save trained models and results
 results_dir = current_dir / "results"
-results_dir.mkdir(exist_ok=True)
+results_dir.mkdir(parents=True, exist_ok=True)
 
 # ===== CONFIGURATION =====
 
@@ -251,8 +251,18 @@ def main():
     
     # ===== STEP 1: LOAD DATA =====
     print("[1/3] Loading data.")
-    feature_array, metadata_df, feature_cols = load_feature_matrix(feature_matrix_file)
-    action_matrix = load_action_matrix(action_matrix_file)
+    # reproducibility
+    np.random.seed(42)
+
+    try:
+        feature_array, metadata_df, feature_cols = load_feature_matrix(feature_matrix_file)
+        action_matrix = load_action_matrix(action_matrix_file)
+    except FileNotFoundError as e:
+        print(f"Data file not found: {e}")
+        return
+    except Exception as e:
+        print(f"Failed to load data: {e}")
+        return
     print(f"Loaded {len(metadata_df)} feature samples")
     print(f"Feature array shape: {feature_array.shape}")
     print(f"Action matrix shape: {action_matrix.shape}")
