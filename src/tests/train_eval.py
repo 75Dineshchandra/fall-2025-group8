@@ -97,8 +97,9 @@ def main():
     with open(results_json, "w") as f:
         json.dump(all_results, f, indent=2)
     print(f"\nResults saved to: {results_json}")
-    print("\nTRAINING COMPLETE ✅")
+    print("\nTRAINING COMPLETE ")
 
 
 if __name__ == "__main__":
+    
     main()
