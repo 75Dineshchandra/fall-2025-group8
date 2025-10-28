@@ -20,6 +20,7 @@ from Components.model import (
     train_linucb_model,
 )
 
+
 # ===== FILE PATHS =====
 data_dir = src_dir / "data"
 feature_matrix_file = data_dir / "feature_matrix.csv"
@@ -32,7 +33,7 @@ results_dir = current_dir / "results"
 results_dir.mkdir(exist_ok=True)
 
 # ===== CONFIGURATION =====
-lambda_values_to_test = [0.03, 0.06, 0.08]  # lower = popularity, higher = health
+lambda_values_to_test = [0.0, 0.05, 0.10, 0.20, 0.30, 0.50, 0.70, 1.0]  # lower = popularity, higher = health
 
 # ===== MAIN =====
 def main():

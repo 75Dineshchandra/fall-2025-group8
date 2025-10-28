@@ -10,7 +10,17 @@ import joblib
 import numpy as np
 import pandas as pd
 
+__all__ = [
+    "LinUCB",
+    "load_feature_matrix",
+    "load_action_matrix",
+    "compute_rewards_for_lambda",
+    "train_linucb_model",
+]
 
+# -------------------------------------------------------------------
+# LinUCB model
+# -------------------------------------------------------------------
 class LinUCB:
     """
     Linear Upper Confidence Bound (LinUCB) for contextual bandits.
@@ -38,10 +48,8 @@ class LinUCB:
         self.total_reward = 0.0
         self.oracle_reward = 0.0
         self.steps_trained = 0
-        # Per-arm stats
-        self.N = np.zeros(self.n_arms, dtype=int)
-        self.R_sum = np.zeros(self.n_arms, dtype=float)
-        # reward buffers removed on purpose (kept lean)
+        self.N = np.zeros(self.n_arms, dtype=int)       # selections per arm
+        self.R_sum = np.zeros(self.n_arms, dtype=float) # cumulative reward per arm
 
     # ----- math -----
     def compute_theta(self, arm_id: int) -> np.ndarray:
@@ -80,59 +88,54 @@ class LinUCB:
         return int(best_arm)
 
     def update_arm(self, arm_id: int, features: np.ndarray, reward: float) -> None:
-       
+        """A ← A + xxᵀ ; b ← b + r x ; update per-arm counters."""
         x = features.reshape(-1, 1)
         self.A_matrices[arm_id] += x @ x.T
         self.b_vectors[arm_id] += float(reward) * x
         self.N[arm_id] += 1
         self.R_sum[arm_id] += float(reward)
 
-    # ----- training / inference -----
+    # ----- whiteboard-style training (T, A, d) -----
     def train(
         self,
-        X: np.ndarray,
-        rows_df: pd.DataFrame,   # must contain ['time_slot_id','item_idx']
-        rewards: np.ndarray,     # len == len(rows_df)
-        avail_mat: np.ndarray,   # shape (n_timeslots, n_arms), values in {0,1}
+        data: np.ndarray,         # shape: (T, A, d)
+        rewards: np.ndarray,      # shape: (T, A)
+        mask: np.ndarray,         # shape: (T, A), 1/True if arm available at t
         verbose: bool = False,
     ) -> Dict[str, float]:
-        """Group by time_slot_id, pick among available arms via UCB, update, and track regret."""
-        if X.shape[0] != len(rows_df):
-            raise ValueError(f"X has {X.shape[0]} rows but rows_df has {len(rows_df)} rows")
-        if len(rewards) != len(rows_df):
-            raise ValueError(f"rewards has {len(rewards)} rows but rows_df has {len(rows_df)} rows")
-        if avail_mat.shape[1] != self.n_arms:
-            raise ValueError(f"avail_mat has {avail_mat.shape[1]} arms but model has {self.n_arms}")
+        """
+       
+          sample = data[t]            -> (A, d)
+          available = where(mask[t])  -> indices
+          choose arm via UCB on available, update with reward, track regret.
+        """
+        if data.ndim != 3:
+            raise ValueError("data must be (T, A, d)")
+        if rewards.shape != data.shape[:2]:
+            raise ValueError("rewards must be (T, A)")
+        if mask.shape != data.shape[:2]:
+            raise ValueError("mask must be (T, A)")
 
-        X = np.asarray(X, dtype=np.float64)
-
-        # group indices by time slot
-        groups: Dict[int, np.ndarray] = {}
-        for t, idxs in rows_df.groupby("time_slot_id").groups.items():
-            groups[int(t)] = np.array(list(idxs), dtype=int)
+        T, A, d = data.shape
+        if A != self.n_arms or d != self.d:
+            raise ValueError(f"shape mismatch: expected A={self.n_arms}, d={self.d}")
 
         total_reward = 0.0
         oracle_reward = 0.0
         steps = 0
 
-        for t in sorted(groups.keys()):
-            if t >= avail_mat.shape[0]:
-                continue
-            available_items = np.where(avail_mat[t] == 1)[0].tolist()
-            if not available_items:
-                continue
-
-            feats, rews = {}, {}
-            for i in groups[t]:
-                arm = int(rows_df.iloc[i]["item_idx"])
-                if arm in available_items:
-                    feats[arm] = X[i]
-                    rews[arm] = float(rewards[i])
-            if not feats:
+        for t in range(T):
+            sample = data[t]                      # (A, d)
+            available = np.where(mask[t])[0]     # (k,)
+            if len(available) == 0:
                 continue
 
-            a = self.select_action(list(feats.keys()), feats)
+            feats = {a: sample[a] for a in available}
+            rews  = {a: float(rewards[t, a]) for a in available}
+
+            a = self.select_action(list(available), feats)
             r = rews[a]
+
             self.update_arm(a, feats[a], r)
 
             total_reward += r
@@ -153,6 +156,7 @@ class LinUCB:
             "avg_reward": float(avg_reward),
         }
 
+    # ----- inference -----
     def get_recommendations(self, features_by_arm: Dict[int, np.ndarray], top_k: int = 5) -> List[Tuple[int, float]]:
         """Return top-k (arm_id, score) pairs for a slot; no state updates."""
         scores: List[Tuple[int, float]] = []
@@ -166,20 +170,22 @@ class LinUCB:
     def save_model(self, file_path: str) -> None:
         """Save parameters + simple stats to disk."""
         os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
-        model_data = {
-            "A_matrices": self.A_matrices,
-            "b_vectors": self.b_vectors,
-            "d": self.d,
-            "n_arms": self.n_arms,
-            "alpha": self.alpha,
-            "l2": self.l2,
-            "N": self.N,
-            "R_sum": self.R_sum,
-            "total_reward": self.total_reward,
-            "oracle_reward": self.oracle_reward,
-            "steps_trained": self.steps_trained,
-        }
-        joblib.dump(model_data, file_path)
+        joblib.dump(
+            {
+                "A_matrices": self.A_matrices,
+                "b_vectors": self.b_vectors,
+                "d": self.d,
+                "n_arms": self.n_arms,
+                "alpha": self.alpha,
+                "l2": self.l2,
+                "N": self.N,
+                "R_sum": self.R_sum,
+                "total_reward": self.total_reward,
+                "oracle_reward": self.oracle_reward,
+                "steps_trained": self.steps_trained,
+            },
+            file_path,
+        )
         print(f"Model saved to {file_path}")
 
     @classmethod
@@ -202,9 +208,9 @@ class LinUCB:
     @classmethod
     def load(cls, file_path: str) -> "LinUCB": return cls.load_model(file_path)
 
-
-# ===== Helpers to load data / compute rewards / train (used by main()) =====
-
+# -------------------------------------------------------------------
+# Data helpers (kept so train_eval.py can import them)
+# -------------------------------------------------------------------
 def load_feature_matrix(file_path: str) -> Tuple[np.ndarray, pd.DataFrame, List[str]]:
     """Return (feature_array, metadata_df, feature_cols). metadata includes time_slot_id,item,item_idx."""
     df = pd.read_csv(file_path, low_memory=False)
@@ -214,18 +220,15 @@ def load_feature_matrix(file_path: str) -> Tuple[np.ndarray, pd.DataFrame, List[
     metadata_df = df[metadata_cols].copy()
     return feature_array, metadata_df, feature_cols
 
-
 def load_action_matrix(file_path: str) -> np.ndarray:
-    """Return availability/action matrix with item_* columns as int32."""
+    """Return availability/action matrix with item_* columns as int32 (shape: T * A)."""
     df = pd.read_csv(file_path, low_memory=False)
     item_cols = [c for c in df.columns if c.startswith("item_")]
     return df[item_cols].to_numpy(dtype=np.int32)
 
-
 def standardize_text_column(data: pd.DataFrame, column_name: str) -> pd.DataFrame:
     data[column_name] = data[column_name].astype(str).str.strip()
     return data
-
 
 def compute_rewards_for_lambda(
     lambda_value: float,
@@ -293,6 +296,40 @@ def compute_rewards_for_lambda(
     print(f"  Boosted {mask.sum()} health-popularity 'sweet spot' items")
     return rewards
 
+# -------------------------------------------------------------------
+# Tensor builder + training wrapper (uses the new train signature)
+# -------------------------------------------------------------------
+def _build_bandit_tensors(
+    feature_array: np.ndarray,     # (N, d)
+    metadata_df: pd.DataFrame,     # cols: time_slot_id, item_idx
+    rewards_vec: np.ndarray,       # (N,)
+    avail_mat: np.ndarray,         # (T, A) 0/1 availability
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Build (data, rewards, mask) tensors to match whiteboard-style train():
+      data   -> (T, A, d)
+      rewards-> (T, A)
+      mask   -> (T, A)
+    Fills rewards by summing if multiple rows map to the same (t, arm).
+    """
+    T, A = avail_mat.shape
+    d = feature_array.shape[1]
+    data = np.zeros((T, A, d), dtype=np.float64)
+    rewards = np.zeros((T, A), dtype=np.float64)
+    mask = (avail_mat.astype(bool))
+
+    # Map rows to (t, arm)
+    ts = metadata_df["time_slot_id"].to_numpy(dtype=int, copy=False)
+    arms = metadata_df["item_idx"].to_numpy(dtype=int, copy=False)
+    rvec = np.asarray(rewards_vec, dtype=float)
+
+    for i in range(len(metadata_df)):
+        t = ts[i]; a = arms[i]
+        if 0 <= t < T and 0 <= a < A:
+            data[t, a, :] = feature_array[i]
+            rewards[t, a] += rvec[i]   # sum if duplicated entries
+
+    return data, rewards, mask
 
 def train_linucb_model(
     feature_array: np.ndarray,
@@ -302,7 +339,7 @@ def train_linucb_model(
     lambda_value: float,
     verbose: bool = False,
 ):
-    """Initialize LinUCB, train, and return (results, model)."""
+    """Initialize LinUCB, build (T, A, d) tensors, train, and return (results, model)."""
     n_samples, n_features = feature_array.shape
     n_arms = action_matrix.shape[1]
 
@@ -311,14 +348,19 @@ def train_linucb_model(
     print(f"  Arms (items): {n_arms}")
     print(f"  Samples: {n_samples}")
 
-    model = LinUCB(d=n_features, n_arms=n_arms, alpha=1.0, l2=1.0, seed=42)
-    results = model.train(
-        X=feature_array, rows_df=metadata_df, rewards=rewards, avail_mat=action_matrix, verbose=verbose
+    # Build tensors for whiteboard-style train()
+    data_3d, rewards_2d, mask_2d = _build_bandit_tensors(
+        feature_array, metadata_df, rewards, action_matrix
     )
+
+    model = LinUCB(d=n_features, n_arms=n_arms, alpha=1.0, l2=1.0, seed=42)
+    results = model.train(data=data_3d, rewards=rewards_2d, mask=mask_2d, verbose=verbose)
     results["lambda"] = float(lambda_value)
     return results, model
 
-
+# -------------------------------------------------------------------
+# Optional: standalone training runner
+# -------------------------------------------------------------------
 def main():
     # Paths relative to src/
     current_dir = Path(__file__).resolve().parent
@@ -333,7 +375,7 @@ def main():
     results_dir = src_dir / "tests" / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    lambda_values_to_test = [0.05, 0.60, 0.70]
+    lambda_values_to_test = [0.0, 0.05, 0.10, 0.20, 0.30, 0.50, 0.70, 1.0]
 
     print("[1/3] Loading data.")
     feature_array, metadata_df, feature_cols = load_feature_matrix(str(feature_matrix_file))
@@ -358,7 +400,6 @@ def main():
         print(f"Saved model to {model_filepath}")
 
     print("\nTraining complete.")
-
 
 if __name__ == "__main__":
     main()
