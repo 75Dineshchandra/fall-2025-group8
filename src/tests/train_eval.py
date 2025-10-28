@@ -9,12 +9,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import json
+
+
 # Add src to path so we can import our custom model
 current_dir = Path(__file__).resolve().parent
 src_dir = current_dir.parent
 sys.path.insert(0, str(src_dir))
 
 from Components.model import LinUCB  # Our custom Contextual Bandit model
+
 
 # ===== FILE PATHS =====
 
@@ -32,7 +35,8 @@ results_dir.mkdir(exist_ok=True)
 
 # Lambda values to test: Health weight parameter
 # Lower lambda = more focus on popularity, Higher lambda = more focus on health
-lambda_values_to_test = [0.05, 0.50, 0.8]
+lambda_values_to_test = [0.05, 0.25, 0.50,0.75, 0.9]
+
 
 # ===== HELPER FUNCTIONS =====
 
@@ -192,6 +196,87 @@ def compute_rewards_for_lambda(lambda_value):
     
     return rewards
 
+
+
+
+
+
+
+def run_random_baseline(
+    metadata_df: pd.DataFrame,
+    rewards: np.ndarray,
+    *,
+    seed: int = 42,
+    top_k: int = 1,
+    lambda_value: float = None,   # <-- added so the result includes "lambda"
+    verbose: bool = False,
+):
+    """
+    Simple Random baseline assuming PERFECT alignment:
+      Every (time_slot_id, item_idx) pair in metadata_df is valid and has a reward.
+
+    For each time slot:
+      - Randomly pick `top_k` distinct items from the rows in that slot
+      - Sum their rewards for the slot
+      - Track the oracle (best possible) reward for regret
+
+    Returns a dict with:
+      steps, total_reward, oracle_reward, regret, avg_reward, lambda, seed, top_k
+    """
+    rng = np.random.default_rng(seed)
+
+    # Group row indices by time slot once (fast + clear)
+    rows_by_slot = metadata_df.groupby("time_slot_id", sort=True).groups
+
+    total_reward = 0.0
+    oracle_reward = 0.0
+    slot_reward_history = []
+
+    # Number of decision points (time slots)
+    steps = len(rows_by_slot)
+
+    for slot_id in rows_by_slot.keys():
+        slot_rows = rows_by_slot[slot_id]
+
+        # Oracle reward for this slot (best possible among rows in this slot)
+        slot_rewards = rewards[slot_rows]
+        oracle_reward += float(np.max(slot_rewards))
+
+        if top_k == 1:
+            # Pick one random row for this slot
+            chosen_row = int(rng.choice(slot_rows))
+            chosen_reward = float(rewards[chosen_row])
+        else:
+            # Enforce unique items if there are duplicates in this slot
+            item_ids = metadata_df.iloc[slot_rows]["item_idx"].to_numpy(dtype=int)
+            _, unique_positions = np.unique(item_ids, return_index=True)
+            unique_rows = np.array(slot_rows)[unique_positions]
+
+            k = min(top_k, len(unique_rows))
+            chosen_rows = rng.choice(unique_rows, size=k, replace=False)
+            chosen_reward = float(np.sum(rewards[chosen_rows]))
+
+        total_reward += chosen_reward
+        slot_reward_history.append(chosen_reward)
+
+        if verbose and (slot_id % 500 == 0):
+            print(f"[Random] slot={slot_id:5d}  reward={chosen_reward:.2f}  total={total_reward:.2f}")
+
+    regret = oracle_reward - total_reward
+    avg_reward = total_reward / max(steps, 1)
+
+    result = {
+        "steps": int(steps),
+        "total_reward": float(total_reward),
+        "oracle_reward": float(oracle_reward),
+        "regret": float(regret),
+        "avg_reward": float(avg_reward),
+        "lambda": float(lambda_value) if lambda_value is not None else None,
+        "seed": int(seed),
+        "top_k": int(top_k),
+    }
+    return result
+
 def train_linucb_model(feature_array, action_matrix, metadata_df, rewards, lambda_value, verbose=False):
     """
     Train a LinUCB model with the given data and lambda value.
@@ -238,6 +323,95 @@ def train_linucb_model(feature_array, action_matrix, metadata_df, rewards, lambd
     
     return training_results, model
 
+def plot_bar_random_vs_linucb(rand: dict, lin: dict, lambda_value: float):
+    """
+    Plots side-by-side bar charts for Total Reward and Regret.
+    Works with your current results dicts that don't include cum_rewards.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    totals = [float(rand["total_reward"]), float(lin["total_reward"])]
+    regrets = [float(rand["regret"]), float(lin["regret"])]
+
+    fig, axes = plt.subplots(1, 2, figsize=(9, 4))
+    axes[0].bar(["Random", "LinUCB"], totals)
+    axes[0].set_title(f"Total Reward (λ={lambda_value:.2f})")
+    axes[0].set_ylabel("Total Reward")
+
+    axes[1].bar(["Random", "LinUCB"], regrets)
+    axes[1].set_title(f"Regret (λ={lambda_value:.2f})")
+    axes[1].set_ylabel("Regret")
+
+    fig.suptitle("Random vs LinUCB")
+    plt.tight_layout()
+    plt.show()
+
+def print_ablation_summary(name: str, results: list):
+    """
+    Pretty-prints an ablation table for a list of per-λ results dicts.
+    Expected keys in each dict: 'lambda', 'total_reward', 'oracle_reward', 'regret'
+    """
+    if not results:
+        print(f"[{name}] No results to display.")
+        return
+
+    # Best = min regret
+    best = min(results, key=lambda r: r["regret"])
+    best_lambda = best["lambda"]
+    best_regret = best["regret"]
+    best_regret_pct = 100 * best_regret / max(best["oracle_reward"], 1)
+
+    print("SUMMARY: LAMBDA ABLATION RESULTS —", name)
+    print("Lambda = Health Weight | Lower values favor popularity, Higher values favor health")
+    print("Regret = How much worse than perfect choices | Lower is better")
+    print("─" * 80)
+    print("Lambda     Total Reward       Oracle Reward      Regret          Regret %")
+    print("─" * 80)
+
+    for r in sorted(results, key=lambda x: x["lambda"]):
+        lam = float(r["lambda"])
+        tot = float(r["total_reward"])
+        orc = float(r["oracle_reward"])
+        reg = float(r["regret"])
+        reg_pct = 100 * reg / max(orc, 1)
+        marker = "-" if lam == best_lambda else " "
+        print(f"{marker} {lam:<8.2f} {tot:>12.2f} {orc:>16.2f} {reg:>15.2f} {reg_pct:>12.1f}%")
+
+    print()
+    print("ANALYSIS")
+    print(f" Best performing lambda: λ = {best_lambda:.2f}")
+    print(f"  Regret: {best_regret:.2f} ({best_regret_pct:.1f}% of optimal)")
+    print()
+
+def print_side_by_side(rand_results: list, lin_results: list):
+    """
+    Prints a compact side-by-side comparison per λ.
+    Assumes both lists contain dicts with the same set of λ values.
+    """
+    # Index by lambda for quick join
+    r_by_lam = {float(r["lambda"]): r for r in rand_results}
+    l_by_lam = {float(r["lambda"]): r for r in lin_results}
+    common = sorted(set(r_by_lam.keys()) & set(l_by_lam.keys()))
+    if not common:
+        print("[Compare] No overlapping lambda values between Random and LinUCB.")
+        return
+
+    print("Random vs LinUCB — per λ")
+    print("─" * 100)
+    print("λ      RandTot      RandRegret    LinTot       LinRegret      ΔTotal        ΔRegret     Lin Regret%")
+    print("─" * 100)
+    for lam in common:
+        rr = r_by_lam[lam]; ll = l_by_lam[lam]
+        d_tot = float(ll["total_reward"]) - float(rr["total_reward"])
+        d_reg = float(ll["regret"]) - float(rr["regret"])
+        lin_reg_pct = 100 * float(ll["regret"]) / max(float(ll["oracle_reward"]), 1)
+        print(f"{lam:<5.2f}  {rr['total_reward']:>12.2f}  {rr['regret']:>12.2f}  "
+              f"{ll['total_reward']:>12.2f}  {ll['regret']:>12.2f}  "
+              f"{d_tot:>12.2f}  {d_reg:>12.2f}   {lin_reg_pct:>9.1f}%")
+    print()
+
+
 def main():
     """
     Main function: Train models with different lambda values and compare results.
@@ -257,24 +431,43 @@ def main():
     print(f"Feature array shape: {feature_array.shape}")
     print(f"Action matrix shape: {action_matrix.shape}")
     print()
-    
+    # After you have loaded:
+# feature_array, metadata_df, action_matrix, rewards
+
+    # ===== STEP 2: TRAIN MODELS WITH DIFFERENT LAMBDAS =====
     # ===== STEP 2: TRAIN MODELS =====
     print("[2/3] Training models with different lambda values.")
     print(f"Testing lambda values: {lambda_values_to_test}")
-    print("Lower lambda = more popularity focused, Higher lambda = more health focused")
-    print()
-    
-    all_results = []    # Store results for each lambda
-    all_models = {}     # Store trained models
-    
+    print("Lower lambda = more popularity focused, Higher lambda = more health focused\n")
+
+    all_results = []      # LinUCB results per λ
+    rand_results = []     # Random baseline results per λ
+    all_models = {}       # Trained LinUCB models per λ
+
+
     for lambda_value in lambda_values_to_test:
         print(f"\n--- Lambda = {lambda_value} ---")
-        
-        # Compute rewards using this lambda value
-        # Different lambda = different balance of health vs popularity
+
+        # Compute rewards for this λ
         rewards = compute_rewards_for_lambda(lambda_value)
+ 
+
+        # Run Random baseline (K=1 unless you serve multiple items per slot)
         
-        # Train model with these rewards
+        rand = run_random_baseline(
+            metadata_df=metadata_df,
+            rewards=rewards,
+            seed=42,
+            top_k=1,
+            lambda_value=lambda_value,  # <-- include λ so it's recorded
+            verbose=False,
+        )
+
+
+        rand["lambda"] = lambda_value
+        rand_results.append(rand)
+
+        # Train LinUCB
         results, model = train_linucb_model(
             feature_array,
             action_matrix,
@@ -283,17 +476,28 @@ def main():
             lambda_value,
             verbose=False
         )
-        
-        # Store results and model
         all_results.append(results)
         all_models[lambda_value] = model
-        
-        # Save trained model for later use
+
+        # Save model
         model_filename = f"model_lambda_{lambda_value:.2f}.joblib"
         model_filepath = results_dir / model_filename
         model.save(str(model_filepath))
         print(f"Saved model to {model_filename}")
-    
+
+      # LinUCB summary
+    print_ablation_summary("LinUCB", all_results)
+
+    # Random summary (requires you filled rand_results in your loop)
+    print_ablation_summary("Random", rand_results)
+
+#    Optional: side-by-side comparison
+    print_side_by_side(rand_results, all_results)
+
+
+    plot_bar_random_vs_linucb(rand, results, lambda_value)
+
+
     # ===== STEP 3: ANALYZE RESULTS =====
     print("\n" + "=" * 70)
     print("HEALTH-POPULARITY TRADE-OFF ANALYSIS")
@@ -317,32 +521,6 @@ def main():
         best_regret = best_result['regret']
         best_regret_pct = 100 * best_regret / max(best_result['oracle_reward'], 1)
         
-        # ===== RESULTS SUMMARY TABLE =====
-        print("SUMMARY: LAMBDA ABLATION RESULTS")
-        print("Lambda = Health Weight | Lower values favor popularity, Higher values favor health")
-        print("Regret = How much worse than perfect choices | Lower is better")
-        print("─" * 80)
-        print("Lambda     Total Reward       Oracle Reward      Regret          Regret %")
-        print("─" * 80)
-        
-        for result in sorted(all_results, key=lambda r: r['lambda']):
-            lambda_val = result['lambda']
-            total_reward = result['total_reward']    # What our model achieved
-            oracle_reward = result['oracle_reward']  # Best possible (perfect choices)
-            regret = result['regret']               # Oracle - Our performance
-            regret_pct = 100 * regret / max(oracle_reward, 1)  # Regret as percentage
-            
-            # Mark the best performing lambda
-            marker = "-" if lambda_val == best_lambda else " "
-            
-            print(f"{marker} {lambda_val:<8.2f} {total_reward:>12.2f} {oracle_reward:>16.2f} {regret:>15.2f} {regret_pct:>12.1f}%")
-        
-        print()
-        print("ANALYSIS")
-        print(f" Best performing lambda: λ = {best_lambda:.2f}")
-        print(f"  Regret: {best_regret:.2f} ({best_regret_pct:.1f}% of optimal)")
-        print()
-        
         
     
     # Save detailed results to JSON file for further analysis
@@ -350,6 +528,14 @@ def main():
     with open(results_json_file, 'w') as f:
         json.dump(all_results, f, indent=2)
     print(f"\n results saved to: {results_json_file}")
+
+    # Save Random baseline results
+    rand_json_file = results_dir / "ablation_results_random.json"
+    with open(rand_json_file, 'w') as f:
+        json.dump(rand_results, f, indent=2)
+    print(f"Random results saved to: {rand_json_file}")
+
+    
     
     print("\n" + "=" * 70)
     print("TRAINING COMPLETE")
