@@ -9,20 +9,20 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import json
-
 # Add src to path so we can import our custom model
 current_dir = Path(__file__).resolve().parent
 src_dir = current_dir.parent
 sys.path.insert(0, str(src_dir))
 
 from Components.model import LinUCB  # Our custom Contextual Bandit model
+from Components.utils import scale_health_score  # Health score scaling function
 
 # ===== FILE PATHS =====
 
 data_dir = src_dir / "data"
 feature_matrix_file = data_dir / "feature_matrix.csv"        # Nutritional features for each meal
 action_matrix_file = data_dir / "action_matrix.csv"          # Which meals were available when
-merged_data_file = data_dir / "fcps_data_with_timestamps.csv" # Raw sales data with timestamps
+merged_data_file = data_dir / "data_healthscore_mapped.csv" # Raw sales data with timestamps
 time_slot_mapping_file = data_dir / "time_slot_mapping.csv"  # Time slot definitions
 
 # Directory to save trained models and results
@@ -33,7 +33,15 @@ results_dir.mkdir(exist_ok=True)
 
 # Lambda values to test: Health weight parameter
 # Lower lambda = more focus on popularity, Higher lambda = more focus on health
-lambda_values_to_test = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
+lambda_values_to_test = [0.05, 0.20, 0.30, 0.40, 0.50, 0.80]
+
+# Reward modes to evaluate. Options:
+#  - 'base'      : original reward = sales * (1 + λ * health_z)
+#  - 'variant1'  : scale sales per time-slot to [0,10] and scale health to [0,10]; reward = sales_scaled + λ * health_scaled
+#  - 'variant2'  : reward = (1-λ) * sales + λ * health_z  (a = 1 - λ)
+#  - 'variant3'  : reward = sales + λ * health_raw (health left as-is); optional rescale via flag
+# 'base' mode removed (deprecated). Use one of 'variant1','variant2','variant3'.
+reward_modes = ['variant1', 'variant2', 'variant3']
 
 # ===== HELPER FUNCTIONS =====
 
@@ -95,103 +103,132 @@ def compute_rewards_for_lambda(lambda_value):
     Input: lambda_value (float) - how much to weight health vs popularity
     Output: numpy array of rewards for each meal serving in historical data
     """
-    print(f"Computing rewards with lambda = {lambda_value}...")
-    
-    # Load feature matrix to get the structure of our data
-    feature_df = pd.read_csv(feature_matrix_file, low_memory=False)
-    rows_metadata = feature_df[["time_slot_id", "item", "item_idx"]].copy()
-    rows_metadata["time_slot_id"] = pd.to_numeric(rows_metadata["time_slot_id"], errors="coerce").astype(int)
-    rows_metadata["item"] = rows_metadata["item"].astype(str)
-    
-    # Load raw sales data to get actual sales numbers and health scores
-    merged_data = pd.read_csv(merged_data_file, low_memory=False)
-    
-    # Clean text data for consistent matching
-    merged_data = standardize_text_column(merged_data, 'date')
-    merged_data = standardize_text_column(merged_data, 'school_name')
-    merged_data = standardize_text_column(merged_data, 'time_of_day')
-    merged_data = standardize_text_column(merged_data, 'description')
-    
-    # Load time slot mapping to connect dates to time slot IDs
-    time_slot_df = pd.read_csv(time_slot_mapping_file, low_memory=False)
-    time_slot_map = dict(zip(
-        zip(time_slot_df['date'].astype(str), 
-            time_slot_df['school_name'].astype(str), 
-            time_slot_df['time_of_day'].astype(str)),
-        time_slot_df['time_slot_id'].astype(int)
-    ))
-    
-    # Assign time slot IDs to each row in the sales data
-    merged_data['time_slot_key'] = list(zip(
-        merged_data['date'], 
-        merged_data['school_name'], 
-        merged_data['time_of_day']
-    ))
-    merged_data['time_slot_id'] = merged_data['time_slot_key'].map(time_slot_map)
-    
-    # Remove rows without valid time slot IDs
-    merged_data = merged_data.dropna(subset=['time_slot_id'])
-    merged_data['time_slot_id'] = merged_data['time_slot_id'].astype(int)
-    
-    # Aggregate sales data: sum total sales and take median health score for each meal
-    aggregated = merged_data.groupby(
-        ["time_slot_id", "description"], 
-        as_index=False
-    ).agg(
-        total=("total", "sum"),           # Total number sold
-        health_score=("HealthScore", "median")  # Health score (1-5 scale)
-    )
-    
-    # Merge aggregated sales data with feature matrix structure
-    aligned_data = rows_metadata.merge(
-        aggregated,
-        left_on=["time_slot_id", "item"],
-        right_on=["time_slot_id", "description"],
-        how="left",      # Keep all rows from feature matrix
-        validate="m:1"   # One meal can appear in multiple time slots
-    )
-    
-    # Process total sales: convert to numeric and fill missing values with 0
-    aligned_data["total"] = pd.to_numeric(aligned_data["total"], errors="coerce").fillna(0.0)
-    
-    # Process health scores: fill missing values with median health score
-    health_scores = aligned_data["health_score"].to_numpy(dtype=float)
-    median_health = np.nanmedian(health_scores)
-    health_scores = np.where(np.isnan(health_scores), median_health, health_scores)
-    
-    # Standardize health scores to z-scores (mean=0, std=1)
-    # This puts all health scores on the same scale for fair comparison
-    health_mean = np.nanmean(health_scores)
-    health_std = np.nanstd(health_scores)
-    if not np.isfinite(health_std) or health_std < 1e-8:
-        health_std = 1.0  # Prevent division by zero
-    health_scores_z = (health_scores - health_mean) / health_std
-    
-    total_sales = aligned_data["total"].to_numpy(dtype=float)
-    
-    # ===== CORE REWARD CALCULATION =====
-    # Base reward: Balance between sales and health based on lambda
-    rewards = total_sales * (1.0 + lambda_value * health_scores_z)
-    
-    # ===== HEALTH-POPULARITY BOOST ENHANCEMENT =====
-    # Find "sweet spot" items that are BOTH popular AND healthy
-    # These are items that students already like AND are good for them
-    
-    # Thresholds: Top 40% in health AND top 40% in popularity
-    health_threshold = np.percentile(health_scores_z, 60)    # 60th percentile = top 40%
-    popularity_threshold = np.percentile(total_sales, 60)    # 60th percentile = top 40%
-    
-    # Create mask: True for items that meet BOTH criteria
-    health_popularity_mask = (health_scores_z > health_threshold) & (total_sales > popularity_threshold)
-    
-    # Apply 20% boost to these "sweet spot" items
-    # Why 20%? Gentle but noticeable nudge without distorting rankings
-    boost_factor = 1.2
-    rewards[health_popularity_mask] *= boost_factor
-    
-    print(f"  Boosted {health_popularity_mask.sum()} health-popularity 'sweet spot' items")
-    
-    return rewards
+    # Backwards-compatible wrapper. The old 'base' mode is deprecated —
+    # map legacy calls to 'variant1' (scaled sales + scaled health) by default.
+    return compute_rewards_by_mode('variant1', lambda_value)
+
+
+def compute_rewards_by_mode(mode: str, lambda_value: float, rescale_health: bool = False):
+    """
+    Public helper that computes rewards for a given mode.
+
+    Modes:
+    - base: Legacy mode, reward = sales * (1 + λ * health_z)
+    - variant1: Both sales and health scaled to 0-10, reward = sales_scaled + λ * health_scaled
+               Sales are scaled per time slot to handle varying volumes
+    - variant2: Using raw sales and z-scored health, reward = (1-λ)sales + λhealth_z
+               This balances relative importance of sales vs health
+    - variant3: Using raw sales and health scores, reward = sales + λ * health_raw
+               Most direct interpretation, optionally can rescale health to 0-10
+
+    Args:
+        mode: Which reward computation mode to use
+        lambda_value: Weight given to health score component (0 to 1)
+        rescale_health: For variant3, whether to rescale health to 0-10 range
+
+    Returns:
+        numpy array of rewards for each meal serving
+    """
+    # Re-use the same logic as the inner implementation by replicating it here.
+    def _prepare_aligned_sales_and_health():
+        feature_df = pd.read_csv(feature_matrix_file, low_memory=False)
+        rows_metadata = feature_df[["time_slot_id", "item", "item_idx"]].copy()
+        rows_metadata["time_slot_id"] = pd.to_numeric(rows_metadata["time_slot_id"], errors="coerce").astype(int)
+        rows_metadata["item"] = rows_metadata["item"].astype(str)
+
+        merged_data = pd.read_csv(merged_data_file, low_memory=False)
+        merged_data = standardize_text_column(merged_data, 'date')
+        merged_data = standardize_text_column(merged_data, 'school_name')
+        merged_data = standardize_text_column(merged_data, 'time_of_day')
+        merged_data = standardize_text_column(merged_data, 'description')
+
+        time_slot_df = pd.read_csv(time_slot_mapping_file, low_memory=False)
+        time_slot_map = dict(zip(
+            zip(time_slot_df['date'].astype(str),
+                time_slot_df['school_name'].astype(str),
+                time_slot_df['time_of_day'].astype(str)),
+            time_slot_df['time_slot_id'].astype(int)
+        ))
+
+        merged_data['time_slot_key'] = list(zip(
+            merged_data['date'],
+            merged_data['school_name'],
+            merged_data['time_of_day']
+        ))
+        merged_data['time_slot_id'] = merged_data['time_slot_key'].map(time_slot_map)
+        merged_data = merged_data.dropna(subset=['time_slot_id'])
+        merged_data['time_slot_id'] = merged_data['time_slot_id'].astype(int)
+
+        aggregated = merged_data.groupby([
+            "time_slot_id", "description"
+        ], as_index=False).agg(
+            total=("total", "sum"),
+            health_score=("HealthScore", "median")
+        )
+
+        aligned_data = rows_metadata.merge(
+            aggregated,
+            left_on=["time_slot_id", "item"],
+            right_on=["time_slot_id", "description"],
+            how="left",
+            validate="m:1"
+        )
+
+        aligned_data["total"] = pd.to_numeric(aligned_data["total"], errors="coerce").fillna(0.0)
+        health_scores = aligned_data["health_score"].to_numpy(dtype=float)
+        median_health = np.nanmedian(health_scores)
+        health_scores = np.where(np.isnan(health_scores), median_health, health_scores)
+
+        return aligned_data, aligned_data["total"].to_numpy(dtype=float), health_scores
+
+    aligned_data, total_sales, health_scores = _prepare_aligned_sales_and_health()
+
+    # Compute z-scored health only when needed (variant2). Other variants use
+    # scale_health_score() when they require scaled health values.
+    health_z = None
+    if mode == 'variant2':
+        health_mean = np.nanmean(health_scores)
+        health_std = np.nanstd(health_scores)
+        if not np.isfinite(health_std) or health_std < 1e-8:
+            # No meaningful variation in health scores -> no z-score signal
+            health_z = np.zeros_like(health_scores)
+        else:
+            health_z = (health_scores - health_mean) / health_std
+
+    if mode == 'variant1':
+        sales_scaled = np.zeros_like(total_sales, dtype=float)
+        for ts_id, group in aligned_data.groupby('time_slot_id').groups.items():
+            idx = list(group)
+            vals = total_sales[idx]
+            vmin = vals.min()
+            vmax = vals.max()
+            if vmax <= vmin:
+                sales_scaled[idx] = 5.0
+            else:
+                sales_scaled[idx] = 10.0 * (vals - vmin) / (vmax - vmin)
+
+        # Use consistent health score scaling from utils
+        health_scaled = np.array([scale_health_score(h) for h in health_scores])
+
+        return sales_scaled + lambda_value * health_scaled
+
+    if mode == 'variant2':
+        a = 1.0 - lambda_value
+        if health_z is None:
+            # Defensive: if health_z wasn't computed for some reason, treat as zero
+            health_z = np.zeros_like(total_sales)
+        return a * total_sales + lambda_value * health_z
+
+    if mode == 'variant3':
+        if rescale_health:
+            # Use consistent health score scaling from utils
+            health_used = np.array([scale_health_score(h) for h in health_scores])
+        else:
+            health_used = health_scores
+
+        return total_sales + lambda_value * health_used
+
+    raise ValueError(f"Unknown reward mode: {mode}")
 
 def train_linucb_model(feature_array, action_matrix, metadata_df, rewards, lambda_value, verbose=False):
     """
@@ -268,32 +305,39 @@ def main():
     all_results = []    # Store results for each lambda
     all_models = {}     # Store trained models
     
-    for lambda_value in lambda_values_to_test:
-        print(f"\n--- Lambda = {lambda_value} ---")
-        
-        # Compute rewards using this lambda value
-        # Different lambda = different balance of health vs popularity
-        rewards = compute_rewards_for_lambda(lambda_value)
-        
-        # Train model with these rewards
-        results, model = train_linucb_model(
-            feature_array,
-            action_matrix,
-            metadata_df,
-            rewards,
-            lambda_value,
-            verbose=False
-        )
-        
-        # Store results and model
-        all_results.append(results)
-        all_models[lambda_value] = model
-        
-        # Save trained model for later use
-        model_filename = f"model_lambda_{lambda_value:.2f}.joblib"
-        model_filepath = results_dir / model_filename
-        model.save(str(model_filepath))
-        print(f"Saved model to {model_filename}")
+    for mode in reward_modes:
+        print(f"\n== Reward mode: {mode} ==")
+        for lambda_value in lambda_values_to_test:
+            print(f"\n--- Lambda = {lambda_value} ---")
+
+            # Compute rewards using the selected mode + lambda
+            # All modes now go through compute_rewards_by_mode. For variant3 we pass
+            # rescale_health=True to enable the optional rescaling path.
+            rescale = True if mode == 'variant3' else False
+            rewards = compute_rewards_by_mode(mode, lambda_value, rescale_health=rescale)
+
+            # Train model with these rewards
+            results, model = train_linucb_model(
+                feature_array,
+                action_matrix,
+                metadata_df,
+                rewards,
+                lambda_value,
+                verbose=False
+            )
+
+            # Annotate results with mode
+            results['mode'] = mode
+
+            # Store results and model
+            all_results.append(results)
+            all_models[(mode, lambda_value)] = model
+
+            # Save trained model for later use
+            model_filename = f"model_{mode}_lambda_{lambda_value:.2f}.joblib"
+            model_filepath = results_dir / model_filename
+            model.save(str(model_filepath))
+            print(f"Saved model to {model_filename}")
     
     # ===== STEP 3: ANALYZE RESULTS =====
     print("\n" + "=" * 70)

@@ -18,12 +18,12 @@ env.load_env_data()
 
 # Main execution
 if __name__ == "__main__":
-    # Use the OPTIMAL model (lambda = 0.05 from your training)
+    # Use the OPTIMAL model (lambda = 0.05 from  training)
     optimal_model_path = "src/tests/results/model_lambda_0.05.joblib"
     
     recommendations = env.recommend_with_trained_model(
         target_date='2025-10-17',
-        school="ALDRIN_ELEMENTARY",
+        school="HERNDON_HIGH",
         meal_time="lunch",
         model_path=optimal_model_path,
         top_k=5

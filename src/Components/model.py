@@ -205,6 +205,8 @@ class LinUCB:
         for arm_id, features in features_by_arm.items():
             score = self.compute_upper_confidence_bound(arm_id, features.reshape(-1))
             scores.append((arm_id, score))
+
+            # treat this as a time step -> update it.
         
         # Sort by score descending
         scores.sort(key=lambda x: x[1], reverse=True)

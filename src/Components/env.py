@@ -11,7 +11,11 @@ import pandas as pd
 from datetime import datetime
 
 # Import LinUCB when env functions need to load a saved model
-from Components.model import LinUCB
+
+try:
+    from Components.model import LinUCB
+except ImportError:
+    from model import LinUCB
 
 # Module-level globals that will be populated by load_env_data()
 merged_data = None
@@ -22,8 +26,9 @@ index_to_item = None
 # ===== FILE PATHS =====
 
 data_dir = Path("src/data")
-input_csv = data_dir / "fcps_data_with_timestamps.csv"  # Raw sales data from FCPS
-df = data_dir / "data_sales_nutrition.csv"
+input_csv_sales = data_dir / "data_healthscore_mapped.csv"  # Raw sales data from FCPS
+
+
 # Output files that will be created:
 item_mapping_file = data_dir / "item_mapping.csv"           # Maps meal names to numbers
 time_slot_mapping_file = data_dir / "time_slot_mapping.csv" # Maps time periods to IDs
@@ -54,6 +59,12 @@ def get_features_for_context(target_date, school, meal_time):
     Returns features_by_arm with ITEM INDICES (0-159) as keys
     """
     day_name = get_day_of_week_name(target_date)
+
+    # Ensure day_name column exists
+    if 'day_name' not in merged_data.columns:
+        # Replace 'date' below with your actual date column (could be 'Date', 'Timestamp', etc.)
+        merged_data['day_name'] = pd.to_datetime(merged_data['date']).dt.day_name()
+
     
     # Find items that were typically available in similar contexts
     similar_data = merged_data[
@@ -185,7 +196,7 @@ def create_directory_if_needed(file_path):
     """Create parent directory if it doesn't exist"""
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
-def load_sales_data(file_path):
+def load_data(file_path):
     """Load the raw sales data CSV file"""
     print("Loading raw sales data...")
     data = pd.read_csv(file_path, low_memory=False)
@@ -214,7 +225,6 @@ def create_item_mapping(data, output_file):
     print("Creating item mapping.")
     
     # Get unique items from description column
-    # Example: ["CHICKEN TENDERS", "PIZZA", "SALAD", "CHICKEN TENDERS"] → ["CHICKEN TENDERS", "PIZZA", "SALAD"]
     unique_items = sorted(data['description'].unique())
     
     # Create mapping dictionary: meal_name -> index_number
@@ -281,34 +291,6 @@ def create_time_slot_mapping(data, output_file):
         time_slot_lookup[key] = int(row['time_slot_id'])
     
     return time_slot_lookup, unique_combinations
-def health_score(row: pd.Series) -> float:
-    DV = {
-        "elementary": {"Calories":1600,"Protein":19,"Total Carbohydrate":130,"Dietary Fiber":25,"Added Sugars":25,
-                       "Total Fat":40,"Saturated Fat":20,"Sodium":1500,"Vitamin D":20,"Calcium":1000,"Iron":10,
-                       "Potassium":4700,"Vitamin A":900,"Vitamin C":90},
-        "middle":     {"Calories":2200,"Protein":34,"Total Carbohydrate":130,"Dietary Fiber":31,"Added Sugars":50,
-                       "Total Fat":77,"Saturated Fat":20,"Sodium":2300,"Vitamin D":20,"Calcium":1300,"Iron":18,
-                       "Potassium":4700,"Vitamin A":900,"Vitamin C":90},
-        "high":       {"Calories":2600,"Protein":46,"Total Carbohydrate":130,"Dietary Fiber":38,"Added Sugars":50,
-                       "Total Fat":91,"Saturated Fat":20,"Sodium":2300,"Vitamin D":20,"Calcium":1300,"Iron":18,
-                       "Potassium":4700,"Vitamin A":900,"Vitamin C":90}
-    }
-    GOOD = ["Protein","Dietary Fiber","Vitamin D","Calcium","Iron","Potassium","Vitamin A","Vitamin C"]
-    BAD  = ["Added Sugars","Saturated Fat","Sodium"]
-
-    school_group = str(row.get("school_group", "high")).lower()
-    dv = DV["elementary"] if "elementary" in school_group else (DV["middle"] if "middle" in school_group else DV["high"])
-
-    good_score, bad_score = 0.0, 0.0
-    for n in GOOD:
-        val = row.get(n, 0) or 0
-        ref = dv.get(n, 1)
-        good_score += min(100, (val/ref)*100)
-    for n in BAD:
-        val = row.get(n, 0) or 0
-        ref = dv.get(n, 1)
-        bad_score += min(100, (val/ref)*100)
-    return good_score - bad_score
 
 # ===== BUILD ACTION MATRIX =====
 
@@ -471,6 +453,76 @@ def create_feature_matrix(data, item_to_index, time_slot_lookup, output_file):
     
     return feature_matrix
 
+def add_timeslot_and_save(df, time_slot_lookup, output_file, standardize=True, keep_unmatched=False):
+    """
+    Add `time_slot_id` to a DataFrame based on (date, school_name, time_of_day) mapping.
+    Standardizes both the DataFrame and the lookup keys temporarily to ensure matches.
+
+    Args:
+        df (pd.DataFrame): Must contain 'date', 'school_name', 'time_of_day'.
+        time_slot_lookup (dict): {(date, school_name, time_of_day): time_slot_id}
+        output_file (Path): Where to save the resulting CSV
+        standardize (bool): Whether to standardize text/date columns
+        keep_unmatched (bool): If True, keep rows that don't match lookup
+
+    Returns:
+        pd.DataFrame: DataFrame with `time_slot_id` column added
+    """
+    tmp = df.copy()
+
+    # Standardize DataFrame columns
+    tmp["date"] = pd.to_datetime(tmp["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    if standardize:
+        for col in ["school_name", "time_of_day"]:
+            tmp = standardize_text_column(tmp, col)
+
+    # Standardize keys in the lookup temporarily
+    standardized_lookup = {}
+    for (d, s, t), ts_id in time_slot_lookup.items():
+        try:
+            d_std = pd.to_datetime(d, errors="coerce").strftime("%Y-%m-%d")
+        except Exception:
+            d_std = d
+        s_std = str(s).strip()
+        t_std = str(t).strip()
+        standardized_lookup[(d_std, s_std, t_std)] = ts_id
+
+    # Build composite key
+    tmp["time_slot_key"] = list(zip(tmp["date"], tmp["school_name"], tmp["time_of_day"]))
+
+    # Map to time_slot_id using standardized lookup
+    tmp["time_slot_id"] = tmp["time_slot_key"].map(standardized_lookup)
+
+    # Count unmatched rows
+    unmatched_count = tmp["time_slot_id"].isna().sum()
+    total_rows = len(tmp)
+    if unmatched_count > 0:
+        print(f"⚠️ Warning: {unmatched_count}/{total_rows} rows did NOT match the time slot lookup.")
+        print("Sample unmatched rows:")
+        print(tmp[tmp["time_slot_id"].isna()][["date", "school_name", "time_of_day"]].head(10))
+
+    # Optionally drop unmatched rows
+    if not keep_unmatched:
+        tmp = tmp.dropna(subset=["time_slot_id"]).copy()
+
+    # Convert IDs to int
+    tmp.loc[tmp["time_slot_id"].notna(), "time_slot_id"] = tmp.loc[tmp["time_slot_id"].notna(), "time_slot_id"].astype(int)
+
+    # Drop temporary key
+    tmp = tmp.drop(columns=["time_slot_key"])
+
+    # Save
+    create_directory_if_needed(output_file)
+    tmp.to_csv(output_file, index=False)
+
+    matched = tmp["time_slot_id"].notna().sum()
+    print(f"Added time_slot_id to {matched}/{total_rows} rows → saved to {output_file}")
+
+    return tmp
+
+
+
+
 # ===== MAIN EXECUTION =====
 
 def main():
@@ -491,16 +543,10 @@ def main():
     
     # ===== STEP 1: LOAD RAW DATA =====
     print("[1/5] Loading raw sales data.")
-    sales_data = load_sales_data(input_csv)
+    sales_data = load_data(input_csv_sales)
     print(f"Loaded {len(sales_data)} rows of raw sales data")
     print("Columns available:", list(sales_data.columns))
     print()
-    
-    # Calculate HealthScore for each row
-    df["HealthScore"] = df.apply(health_score, axis=1)
-    output_file = "data_heathscore_mapped.csv"
-    df.to_csv(output_file, index=False)
-    print(f" Health scores calculated and saved to {output_file}")
     
     # ===== STEP 2: BUILD ITEM MAPPING =====
     print("[2/5] Building item mapping.")
@@ -548,6 +594,16 @@ def main():
         print("Building new feature matrix.")
         feature_matrix = create_feature_matrix(sales_data, item_to_index, time_slot_lookup, feature_matrix_file)
     print()
+
+
+    df_with_timeslot = add_timeslot_and_save(
+    df=load_data(input_csv_sales),
+    time_slot_lookup=time_slot_lookup,
+    output_file=Path("data/with_timeslot.csv"),
+    standardize=True,
+    keep_unmatched=False
+    )
+
     
     
 if __name__ == "__main__":
@@ -567,7 +623,7 @@ def load_env_data(repo_root: str = ""):
     global merged_data, feature_df, item_to_index, index_to_item
     data_dir = Path(repo_root) / "src" / "data" if repo_root else Path("src") / "data"
 
-    merged_data_file = data_dir / "fcps_data_with_timestamps.csv"
+    merged_data_file = data_dir / "data_healthscore_mapped.csv"
     feature_matrix_file = data_dir / "feature_matrix.csv"
     item_mapping_file = data_dir / "item_mapping.csv"
 
@@ -583,3 +639,9 @@ def load_env_data(repo_root: str = ""):
     index_to_item = dict(zip(item_mapping_df['item_idx'], item_mapping_df['item']))
 
     print("Environment data loaded into env module globals.")
+
+    # Build or load your lookup once
+    # time_slot_lookup = build_time_slot_lookup(merged_df)
+
+    
+    

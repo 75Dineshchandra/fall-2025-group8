@@ -1,66 +1,164 @@
 [
   {
     "steps": 21656,
-    "total_reward": 1728833.135879205,
-    "oracle_reward": 3706960.1322084055,
-    "regret": 1978126.9963292005,
-    "avg_reward": 79.8316002899522,
-    "lambda": 0.05
+    "total_reward": 150210.626474757,
+    "oracle_reward": 218389.7317851095,
+    "regret": 68179.10531035249,
+    "avg_reward": 6.936212895952947,
+    "lambda": 0.05,
+    "mode": "variant1"
   },
   {
     "steps": 21656,
-    "total_reward": 1756813.4875582545,
-    "oracle_reward": 3783759.8594459007,
-    "regret": 2026946.3718876461,
-    "avg_reward": 81.1236372163952,
-    "lambda": 0.1
+    "total_reward": 156920.20331575072,
+    "oracle_reward": 231677.3511644202,
+    "regret": 74757.14784866947,
+    "avg_reward": 7.246038202611319,
+    "lambda": 0.2,
+    "mode": "variant1"
   },
   {
     "steps": 21656,
-    "total_reward": 1774424.499478188,
-    "oracle_reward": 3868290.0630615037,
-    "regret": 2093865.5635833156,
-    "avg_reward": 81.93685350379516,
-    "lambda": 0.15
+    "total_reward": 166869.94580452653,
+    "oracle_reward": 240547.61203454656,
+    "regret": 73677.66623002003,
+    "avg_reward": 7.7054832750520195,
+    "lambda": 0.3,
+    "mode": "variant1"
   },
   {
     "steps": 21656,
-    "total_reward": 1803564.8599189403,
-    "oracle_reward": 3960322.678112863,
-    "regret": 2156757.8181939228,
-    "avg_reward": 83.28245566674087,
-    "lambda": 0.2
+    "total_reward": 174615.93428540236,
+    "oracle_reward": 249429.22056435255,
+    "regret": 74813.2862789502,
+    "avg_reward": 8.06316652592364,
+    "lambda": 0.4,
+    "mode": "variant1"
   },
   {
     "steps": 21656,
-    "total_reward": 1843501.877808078,
-    "oracle_reward": 4059015.5639840392,
-    "regret": 2215513.686175961,
-    "avg_reward": 85.1266105378684,
-    "lambda": 0.25
+    "total_reward": 180732.92376751106,
+    "oracle_reward": 258322.83687275313,
+    "regret": 77589.91310524207,
+    "avg_reward": 8.345628175448423,
+    "lambda": 0.5,
+    "mode": "variant1"
   },
   {
     "steps": 21656,
-    "total_reward": 1880319.3194660458,
-    "oracle_reward": 4163580.4996832097,
-    "regret": 2283261.1802171636,
-    "avg_reward": 86.82671404996518,
-    "lambda": 0.3
+    "total_reward": 188588.54072361617,
+    "oracle_reward": 285059.2549839909,
+    "regret": 96470.71426037475,
+    "avg_reward": 8.708373694293321,
+    "lambda": 0.8,
+    "mode": "variant1"
   },
   {
     "steps": 21656,
-    "total_reward": 1964969.8158159307,
-    "oracle_reward": 4388468.304628516,
-    "regret": 2423498.488812585,
-    "avg_reward": 90.73558440228716,
-    "lambda": 0.4
+    "total_reward": 1576056.198515403,
+    "oracle_reward": 3204577.3007414727,
+    "regret": 1628521.1022260697,
+    "avg_reward": 72.77688393587934,
+    "lambda": 0.05,
+    "mode": "variant2"
   },
   {
     "steps": 21656,
-    "total_reward": 2056031.1901599516,
-    "oracle_reward": 4633025.3001513025,
-    "regret": 2576994.109991351,
-    "avg_reward": 94.94048717029699,
-    "lambda": 0.5
+    "total_reward": 1326647.2360084273,
+    "oracle_reward": 2699165.2029660745,
+    "regret": 1372517.9669576471,
+    "avg_reward": 61.26003121575671,
+    "lambda": 0.2,
+    "mode": "variant2"
+  },
+  {
+    "steps": 21656,
+    "total_reward": 1163077.737686762,
+    "oracle_reward": 2362226.035320574,
+    "regret": 1199148.297633812,
+    "avg_reward": 53.706951315421215,
+    "lambda": 0.3,
+    "mode": "variant2"
+  },
+  {
+    "steps": 21656,
+    "total_reward": 996252.4881996762,
+    "oracle_reward": 2025297.7698304472,
+    "regret": 1029045.281630771,
+    "avg_reward": 46.003531963413195,
+    "lambda": 0.4,
+    "mode": "variant2"
+  },
+  {
+    "steps": 21656,
+    "total_reward": 830359.306195223,
+    "oracle_reward": 1688388.8124744368,
+    "regret": 858029.5062792138,
+    "avg_reward": 38.34315229937306,
+    "lambda": 0.5,
+    "mode": "variant2"
+  },
+  {
+    "steps": 21656,
+    "total_reward": 336404.2229533618,
+    "oracle_reward": 678055.763813267,
+    "regret": 341651.5408599052,
+    "avg_reward": 15.533996257543489,
+    "lambda": 0.8,
+    "mode": "variant2"
+  },
+  {
+    "steps": 21656,
+    "total_reward": 1663291.6475001792,
+    "oracle_reward": 3377472.5410003504,
+    "regret": 1714180.8935001711,
+    "avg_reward": 76.80511855837547,
+    "lambda": 0.05,
+    "mode": "variant3"
+  },
+  {
+    "steps": 21656,
+    "total_reward": 1673954.614000042,
+    "oracle_reward": 3390746.163999714,
+    "regret": 1716791.549999672,
+    "avg_reward": 77.29749787587929,
+    "lambda": 0.2,
+    "mode": "variant3"
+  },
+  {
+    "steps": 21656,
+    "total_reward": 1684371.0809999302,
+    "oracle_reward": 3399595.245999913,
+    "regret": 1715224.164999983,
+    "avg_reward": 77.77849468969016,
+    "lambda": 0.3,
+    "mode": "variant3"
+  },
+  {
+    "steps": 21656,
+    "total_reward": 1697399.8999998705,
+    "oracle_reward": 3408444.3279999103,
+    "regret": 1711044.42800004,
+    "avg_reward": 78.38012098263162,
+    "lambda": 0.4,
+    "mode": "variant3"
+  },
+  {
+    "steps": 21656,
+    "total_reward": 1706269.4100000865,
+    "oracle_reward": 3417293.6800005813,
+    "regret": 1711024.2700004948,
+    "avg_reward": 78.7896846139678,
+    "lambda": 0.5,
+    "mode": "variant3"
+  },
+  {
+    "steps": 21656,
+    "total_reward": 1733364.4799997942,
+    "oracle_reward": 3443852.855999899,
+    "regret": 1710488.376000105,
+    "avg_reward": 80.04084226079581,
+    "lambda": 0.8,
+    "mode": "variant3"
   }
 ]
