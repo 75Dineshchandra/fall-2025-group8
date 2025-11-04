@@ -1,10 +1,10 @@
-# src/plots/linucb_learning_performance_full8.py
+# src/plots/linucb_learning_performance_full4.py
 """
-LinUCB Learning Performance (VARIANT1, λ=0.3) — 8 panels:
-1) Cumulative Reward          2) Rolling Avg Reward
-3) Cumulative Regret          4) Rolling Avg Regret
-5) Cumulative Sales (raw)     6) Rolling Avg Sales (raw)
-7) Cumulative Health (raw)    8) Rolling Avg Health (raw)
+LinUCB Learning Performance (VARIANT1, λ=0.3) — 4 panels:
+1) Rolling Avg Reward
+2) Rolling Avg Regret
+3) Rolling Avg Sales (raw)
+4) Rolling Avg Health (raw)
 """
 
 import sys
@@ -45,11 +45,9 @@ ROLL_W = 50
 # ---------- helpers ----------
 def rolling_mean(x, w):
     s = pd.Series(x)
-    return s.rolling(window=w, min_periods=1).mean().to_numpy()
+    return s.expanding().mean().to_numpy()
 
-def expanding_sum(x):
-    s = pd.Series(x)
-    return s.cumsum().to_numpy()
+
 
 def build_time_item_lookup(merged_csv, timeslots_csv):
     """(time_slot_id, item_name) -> (raw_sales_sum, raw_health_median)"""
@@ -136,72 +134,45 @@ def train_linucb_and_track(
     df["roll_regret"] = rolling_mean(df["regret"].to_numpy(), ROLL_W)
     df["roll_sales"]  = rolling_mean(df["sales"].to_numpy(),  ROLL_W)
     df["roll_health"] = rolling_mean(df["health"].to_numpy(), ROLL_W)
-
-    # Cumulative (long-term)
-    df["cum_reward"] = expanding_sum(df["reward"].to_numpy())
-    df["cum_regret"] = expanding_sum(df["regret"].to_numpy())
-    df["cum_sales"]  = expanding_sum(df["sales"].to_numpy())
-    df["cum_health"] = expanding_sum(df["health"].to_numpy())
-
     return df
 
 # ---------- plotting (8 panels) ----------
-def plot_full8(df):
-    fig, axes = plt.subplots(4, 2, figsize=(16, 18))
+
+def plot_rolling4(df):
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     fig.suptitle(f"LinUCB Learning Performance (λ={LAMBDA})", fontsize=16, fontweight="bold", y=0.995)
 
-    # 1) Cumulative Reward
+    # 1) Rolling Avg Reward
     ax = axes[0,0]
-    ax.plot(df["t"], df["cum_reward"], lw=2.2, label="Cumulative Reward", color="tab:blue")
-    ax.plot(df["t"], df["cum_reward"] + df["cum_regret"], lw=1.8, ls="--", color="tab:green", label="Oracle (cum)")
-    ax.fill_between(df["t"], df["cum_reward"], df["cum_reward"] + df["cum_regret"], color="tab:red", alpha=0.25, label="Cum Regret Gap")
-    ax.set_title("Cumulative Reward — LinUCB vs Oracle"); ax.set_ylabel("Cumulative Reward"); ax.grid(True, alpha=0.3); ax.legend()
-
-    # 2) Rolling Avg Reward
-    ax = axes[0,1]
     ax.plot(df["t"], df["roll_reward"], lw=2.2, color="tab:blue")
     ax.set_title(f"Rolling Avg Reward (window={ROLL_W})"); ax.set_ylabel("Avg Reward"); ax.grid(True, alpha=0.3)
 
-    # 3) Cumulative Regret
-    ax = axes[1,0]
-    ax.plot(df["t"], df["cum_regret"], lw=2.2, color="tab:red")
-    ax.set_title("Cumulative Regret"); ax.set_ylabel("Cumulative Regret"); ax.grid(True, alpha=0.3)
-
-    # 4) Rolling Avg Regret
-    ax = axes[1,1]
+    # 2) Rolling Avg Regret
+    ax = axes[0,1]
     ax.plot(df["t"], df["roll_regret"], lw=2.2, color="tab:red")
     ax.axhline(0, ls="--", lw=1.2, color="tab:green", alpha=0.6)
     ax.set_title(f"Rolling Avg Regret (window={ROLL_W})"); ax.set_ylabel("Avg Regret/Step"); ax.grid(True, alpha=0.3)
 
-    # 5) Cumulative Sales (raw)
-    ax = axes[2,0]
-    ax.plot(df["t"], df["cum_sales"], lw=2.2, color="tab:purple")
-    ax.set_title("Cumulative Sales (raw)"); ax.set_ylabel("Cumulative Sales"); ax.grid(True, alpha=0.3)
-
-    # 6) Rolling Avg Sales (raw)
-    ax = axes[2,1]
+    # 3) Rolling Avg Sales (raw)
+    ax = axes[1,0]
     ax.plot(df["t"], df["roll_sales"], lw=2.2, color="tab:purple")
     ax.set_title(f"Rolling Avg Sales (raw, window={ROLL_W})"); ax.set_ylabel("Avg Sales"); ax.grid(True, alpha=0.3)
 
-    # 7) Cumulative Health (raw)
-    ax = axes[3,0]
-    ax.plot(df["t"], df["cum_health"], lw=2.2, color="tab:orange")
-    ax.set_title("Cumulative Health (raw)"); ax.set_ylabel("Cumulative Health"); ax.set_xlabel("Time Step"); ax.grid(True, alpha=0.3)
-
-    # 8) Rolling Avg Health (raw)
-    ax = axes[3,1]
+    # 4) Rolling Avg Health (raw)
+    ax = axes[1,1]
     ax.plot(df["t"], df["roll_health"], lw=2.2, color="tab:orange")
-    ax.set_title(f"Rolling Avg Health (raw, window={ROLL_W})"); ax.set_ylabel("Avg Health"); ax.set_xlabel("Time Step"); ax.grid(True, alpha=0.3)
+    ax.set_title(f"Rolling Avg Health (raw, window={ROLL_W})"); ax.set_ylabel("Avg Health"); ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    out_png = RESULTS_DIR / f"linucb_learning_performance_lambda_{LAMBDA}_full8.png"
+    out_png = RESULTS_DIR / f"linucb_learning_performance_lambda_{LAMBDA}_rolling4.png"
     plt.savefig(out_png, dpi=300, bbox_inches="tight")
-    print(f"✓ Saved full 8-panel plot: {out_png}")
+    print(f"✓ Saved rolling 4-panel plot: {out_png}")
     plt.show()
+
 
 def main():
     print("="*72)
-    print("LINUCB LEARNING PERFORMANCE — FULL 8 PANELS")
+    print("LINUCB LEARNING PERFORMANCE — ROLLING 4 PANELS")
     print("="*72)
 
     X, meta, _ = load_feature_matrix(str(FEATURE_MATRIX))
@@ -217,17 +188,12 @@ def main():
 
     df = train_linucb_and_track(X, A, meta, rewards_vec, alpha=1.0, ridge=1.0)
 
-    # quick console summary
-    total_regret = df["regret"].sum()
-    oracle_total = (df["cum_reward"].iloc[-1] + df["cum_regret"].iloc[-1])
-    print(f"Total regret: {total_regret:.2f} ({100*total_regret/max(oracle_total,1):.2f}%)")
-
     # save data + plot
-    out_csv = RESULTS_DIR / f"linucb_performance_lambda_{LAMBDA}_full8.csv"
+    out_csv = RESULTS_DIR / f"linucb_performance_lambda_{LAMBDA}_rolling4.csv"
     df.to_csv(out_csv, index=False)
     print(f"Saved performance CSV: {out_csv}")
 
-    plot_full8(df)
+    plot_rolling4(df)
 
 if __name__ == "__main__":
     main()
