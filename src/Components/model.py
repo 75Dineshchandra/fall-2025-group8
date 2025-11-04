@@ -1,6 +1,6 @@
 # ===== model.py =====
 # Purpose: LinUCB algorithm for contextual bandits
-# Can be run directly (python src/components/model.py) to train and save models.
+# Updated to use Variant1 reward calculation (sales_scaled + λ * health_scaled)
 
 import os
 from pathlib import Path
@@ -86,7 +86,7 @@ class LinUCB:
         if best_arm is None:
             best_arm = int(self.random_state.choice(available_arms))
         return int(best_arm)
-
+        
     def update_arm(self, arm_id: int, features: np.ndarray, reward: float) -> None:
         """A ← A + xxᵀ ; b ← b + r x ; update per-arm counters."""
         x = features.reshape(-1, 1)
@@ -94,7 +94,7 @@ class LinUCB:
         self.b_vectors[arm_id] += float(reward) * x
         self.N[arm_id] += 1
         self.R_sum[arm_id] += float(reward)
-
+        
     # ----- whiteboard-style training (T, A, d) -----
     def train(
         self,
@@ -104,7 +104,7 @@ class LinUCB:
         verbose: bool = False,
     ) -> Dict[str, float]:
         """
-       
+        Train on tensor data:
           sample = data[t]            -> (A, d)
           available = where(mask[t])  -> indices
           choose arm via UCB on available, update with reward, track regret.
@@ -209,7 +209,7 @@ class LinUCB:
     def load(cls, file_path: str) -> "LinUCB": return cls.load_model(file_path)
 
 # -------------------------------------------------------------------
-# Data helpers (kept so train_eval.py can import them)
+# Data helpers
 # -------------------------------------------------------------------
 def load_feature_matrix(file_path: str) -> Tuple[np.ndarray, pd.DataFrame, List[str]]:
     """Return (feature_array, metadata_df, feature_cols). metadata includes time_slot_id,item,item_idx."""
@@ -237,17 +237,44 @@ def compute_rewards_for_lambda(
     time_slot_mapping_file: str,
 ) -> np.ndarray:
     """
-    Reward = total_sales * (1 + λ * z(health)) with a 20% boost to top-40% healthy & popular items.
+    VARIANT1 Reward Calculation (Best Performance - Lowest Regret)
+    
+    Formula: reward = sales_scaled + λ * health_scaled
+    
+    Where:
+    - sales_scaled: Sales per time-slot scaled to [0, 10]
+    - health_scaled: Health scores scaled to [0, 10] using scale_health_score()
+    - λ (lambda): Health weight parameter (0 = only popularity, 1 = only health)
+    
+    This approach:
+    1. Puts both metrics on the same scale (0-10)
+    2. Makes lambda interpretation direct (0.5 = 50% weight to each)
+    3. Handles varying sales volumes fairly via per-timeslot scaling
+    4. No complex z-scores or multiplicative factors
+    
+    Returns:
+        numpy array of rewards for each meal serving
     """
+    # Import scale_health_score from utils
+    try:
+        from Components.utils import scale_health_score
+    except ImportError:
+        from utils import scale_health_score
+    
+    print(f"  Computing VARIANT1 rewards (λ={lambda_value})...")
+    
+    # Load feature matrix metadata
     feature_df = pd.read_csv(feature_matrix_file, low_memory=False)
     rows = feature_df[["time_slot_id", "item", "item_idx"]].copy()
     rows["time_slot_id"] = pd.to_numeric(rows["time_slot_id"], errors="coerce").astype(int)
     rows["item"] = rows["item"].astype(str)
 
+    # Load merged sales data
     merged = pd.read_csv(merged_data_file, low_memory=False)
     for c in ["date", "school_name", "time_of_day", "description"]:
         merged = standardize_text_column(merged, c)
 
+    # Load time slot mapping
     ts = pd.read_csv(time_slot_mapping_file, low_memory=False)
     key2id = dict(
         zip(
@@ -256,16 +283,19 @@ def compute_rewards_for_lambda(
         )
     )
 
+    # Map time slots to merged data
     merged["time_slot_key"] = list(zip(merged["date"], merged["school_name"], merged["time_of_day"]))
     merged["time_slot_id"] = merged["time_slot_key"].map(key2id)
     merged = merged.dropna(subset=["time_slot_id"])
     merged["time_slot_id"] = merged["time_slot_id"].astype(int)
 
+    # Aggregate sales and health by time_slot and item
     agg = merged.groupby(["time_slot_id", "description"], as_index=False).agg(
         total=("total", "sum"),
         health_score=("HealthScore", "median"),
     )
 
+    # Align with feature matrix rows
     aligned = rows.merge(
         agg,
         left_on=["time_slot_id", "item"],
@@ -274,30 +304,49 @@ def compute_rewards_for_lambda(
         validate="m:1",
     )
 
+    # Extract sales and health scores
     aligned["total"] = pd.to_numeric(aligned["total"], errors="coerce").fillna(0.0)
-
+    total_sales = aligned["total"].to_numpy(dtype=float)
+    
     health = aligned["health_score"].to_numpy(dtype=float)
     health = np.where(np.isnan(health), np.nanmedian(health), health)
 
-    mu = float(np.nanmean(health))
-    sd = float(np.nanstd(health))
-    if not np.isfinite(sd) or sd < 1e-8:
-        sd = 1.0
-    health_z = (health - mu) / sd
-
-    sales = aligned["total"].to_numpy(dtype=float)
-    rewards = sales * (1.0 + float(lambda_value) * health_z)
-
-    h_thr = np.percentile(health_z, 60)
-    p_thr = np.percentile(sales, 60)
-    mask = (health_z > h_thr) & (sales > p_thr)
-    rewards[mask] *= 1.2
-
-    print(f"  Boosted {mask.sum()} health-popularity 'sweet spot' items")
+    # VARIANT1: Scale sales per time-slot to [0, 10]
+    print("  Scaling sales per time-slot to [0, 10]...")
+    sales_scaled = np.zeros_like(total_sales, dtype=float)
+    
+    for ts_id in aligned['time_slot_id'].unique():
+        # Get indices for this time slot
+        mask = (aligned['time_slot_id'] == ts_id).values
+        slot_sales = total_sales[mask]
+        
+        # Scale to [0, 10] range
+        vmin = slot_sales.min()
+        vmax = slot_sales.max()
+        
+        if vmax <= vmin:
+            # All sales same -> assign middle value
+            sales_scaled[mask] = 5.0
+        else:
+            # Linear scaling to [0, 10]
+            sales_scaled[mask] = 10.0 * (slot_sales - vmin) / (vmax - vmin)
+    
+    # VARIANT1: Scale health scores to [0, 10] using utils function
+    print("  Scaling health scores to [0, 10]...")
+    health_scaled = np.array([scale_health_score(h) for h in health])
+    
+    # VARIANT1: Combine with lambda weighting
+    # reward = sales_scaled + λ * health_scaled
+    rewards = sales_scaled + float(lambda_value) * health_scaled
+    
+    print(f"  Rewards computed: mean={rewards.mean():.2f}, std={rewards.std():.2f}")
+    print(f"  Sales scaled: mean={sales_scaled.mean():.2f}, std={sales_scaled.std():.2f}")
+    print(f"  Health scaled: mean={health_scaled.mean():.2f}, std={health_scaled.std():.2f}")
+    
     return rewards
 
 # -------------------------------------------------------------------
-# Tensor builder + training wrapper (uses the new train signature)
+# Tensor builder + training wrapper
 # -------------------------------------------------------------------
 def _build_bandit_tensors(
     feature_array: np.ndarray,     # (N, d)
@@ -362,6 +411,10 @@ def train_linucb_model(
 # Optional: standalone training runner
 # -------------------------------------------------------------------
 def main():
+    """
+    Standalone training with VARIANT1 rewards.
+    Tests multiple lambda values to find optimal health-popularity balance.
+    """
     # Paths relative to src/
     current_dir = Path(__file__).resolve().parent
     src_dir = current_dir.parent
@@ -375,9 +428,16 @@ def main():
     results_dir = src_dir / "tests" / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    lambda_values_to_test = [0.0, 0.05, 0.10, 0.20, 0.30, 0.50, 0.70, 1.0]
+    lambda_values_to_test = [0.2, 0.3,0.4, 0.6, 0.8]
 
-    print("[1/3] Loading data.")
+    print("=" * 70)
+    print("LINUCB TRAINING WITH VARIANT1 REWARDS")
+    print("=" * 70)
+    print("reward = sales_scaled + λ * health_scaled")
+    print("Both metrics scaled to [0, 10] for fair comparison")
+    print()
+
+    print("[1/3] Loading data...")
     feature_array, metadata_df, feature_cols = load_feature_matrix(str(feature_matrix_file))
     action_matrix = load_action_matrix(str(action_matrix_file))
     print(f"Loaded {len(metadata_df)} feature samples")
@@ -387,10 +447,22 @@ def main():
     all_results = []
     all_models = {}
 
+    print("\n[2/3] Training models with different lambda values...")
     for lam in lambda_values_to_test:
         print(f"\n--- Lambda = {lam} ---")
-        rewards = compute_rewards_for_lambda(lam, str(feature_matrix_file), str(merged_data_file), str(time_slot_mapping_file))
-        results, model = train_linucb_model(feature_array, action_matrix, metadata_df, rewards, lam)
+        rewards = compute_rewards_for_lambda(
+            lam, 
+            str(feature_matrix_file), 
+            str(merged_data_file), 
+            str(time_slot_mapping_file)
+        )
+        results, model = train_linucb_model(
+            feature_array, 
+            action_matrix, 
+            metadata_df, 
+            rewards, 
+            lam
+        )
         all_results.append(results)
         all_models[lam] = model
 
@@ -399,7 +471,27 @@ def main():
         model.save(str(model_filepath))
         print(f"Saved model to {model_filepath}")
 
-    print("\nTraining complete.")
+    print("\n[3/3] Results Summary")
+    print("=" * 70)
+    print("Lambda     Total Reward    Oracle Reward       Regret      Regret %")
+    print("-" * 70)
+    
+    best_result = min(all_results, key=lambda r: r['regret'])
+    
+    for result in sorted(all_results, key=lambda r: r['lambda']):
+        lam = result['lambda']
+        total = result['total_reward']
+        oracle = result['oracle_reward']
+        regret = result['regret']
+        regret_pct = 100 * regret / max(oracle, 1)
+        
+        marker = "→" if lam == best_result['lambda'] else " "
+        print(f"{marker} {lam:<8.2f} {total:>12.2f} {oracle:>15.2f} {regret:>12.2f} {regret_pct:>11.1f}%")
+    
+    print()
+    print(f"Best lambda: {best_result['lambda']:.2f}")
+    print(f"Regret: {best_result['regret']:.2f} ({100*best_result['regret']/max(best_result['oracle_reward'],1):.1f}%)")
+    print("\nTraining complete! ✓")
 
 if __name__ == "__main__":
     main()

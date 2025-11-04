@@ -63,16 +63,24 @@ def health_score(row: pd.Series) -> float:
         bad_score += min(100, (val/ref)*100)
 
     raw_score = good_score - bad_score
+    return raw_score  # Return raw unscaled score
+
+def scale_health_score(raw_score: float) -> float:
+    """
+    Scale a raw health score from its natural range (-300 to 800) to 0-10.
     
-    # Scale to 0-10 range
-    min_score = -600  # worst-case negative score
-    max_score = 900   # best-case score
+    Args:
+        raw_score: Raw health score from health_score() function
+        
+    Returns:
+        float: Score scaled to 0-10 range with 2 decimal precision
+    """
+    min_score = -300  # worst-case negative score
+    max_score = 800   # best-case score
     
     scaled_score = 10 * (raw_score - min_score) / (max_score - min_score)
     scaled_score = max(0, min(10, scaled_score))  # clamp to [0,10]
-    scaled_score = np.round(scaled_score, 2)
-
-    return scaled_score
+    return np.round(scaled_score, 2)
 
 def merge_sales_nutrition_data(sales_data, nutrition_data):
     """
