@@ -633,13 +633,13 @@ def main():
     
     # Print summary
     print("\n" + "=" * 72)
-    print("📊 FINAL SUMMARY")
+    print(" FINAL SUMMARY")
     print("=" * 72)
-    print(f"\n🏆 RANKING (by Final Reward):")
+    print(f"\n RANKING (by Final Reward):")
     print(f"   1. LinUCB:  {df_linucb['roll_reward'].iloc[-1]:.3f} (Regret: {df_linucb['roll_regret_pct'].iloc[-1]:.1f}%) [BEST]")
     print(f"   2. Linear:  {df_linear['roll_reward'].iloc[-1]:.3f} (Regret: {df_linear['roll_regret_pct'].iloc[-1]:.1f}%)")
     print(f"   3. Random:  {df_random['roll_reward'].iloc[-1]:.3f} (Regret: {df_random['roll_regret_pct'].iloc[-1]:.1f}%)")
-    print("\n✅ CONCLUSION: LinUCB outperforms both Linear and Random baselines!")
+    print("\n CONCLUSION: LinUCB outperforms both Linear and Random baselines!")
     print("=" * 72)
 
 
