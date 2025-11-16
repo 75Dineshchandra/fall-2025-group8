@@ -17,172 +17,88 @@ Note: Use Markdown Cheat Sheet download in the directory as needed.
 ---
 ## Date: Week 3 - Month Day Year 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Nutritional Scoring & Health Index Research
+    - Code for Nutritional Scoring & Health Index
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [Done] Action Nutritional Scoring & Health Index Research
+* [Done] Action Code for Nutritional Scoring & Health Index
+
 ---
 ## Date: Week 4 - Month Day Year 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Initial LinUCB version Understanding
+    - Code Initial LinUCB version
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [Done] Action Initial LinUCB version Understanding
+* [Done] Action Code Initial LinUCB version
+
 ---
 ## Date: Week 5 - Month Day Year 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Normalising Healthscore function
+    - Understanding Scaling Factor
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [Done] Action Normalising Healthscore function
+* [Done] Action Understanding Scaling Factor
+      
 ---
 ## Date: Week 6 - Month Day Year 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Presentation Preparation
+    - Initial results
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [Done] Action Presentation Preparation
+* [Done] Action Initial results
+
 ---
 ## Date: Week 7 - Month Day Year 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Healthscore code adjusting to schools
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [Done] Action Healthscore code adjusting to schools
+  
 ----
 ## Date: Week 8 - Month Day Year 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Finetuning
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [Done] Action Finetuning
+
 ---
 
 ## Date: Week 9 - Month Day Year 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - plot correction 
+    - debugginng
+
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [Done] Action plot correction
+* [Done] Action debugging
+  
 ---
 ## Date: Week 10 - Month Day Year 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Started Overleaf with introductory work
+
 
 - Action Items:
 
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
----
-## Date: Week 11 - Month Day Year 
-- Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+* [Done] Action Started Overleaf with introductory work
 
-- Action Items:
-
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
----
-## Date: Week 12 - Month Day Year 
-- Topics of discussion
-    - Item1
-    - Item2
-    - Item3
-
-- Action Items:
-
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
----
-## Date: Week 13 - Month Day Year 
-- Topics of discussion
-    - Item1
-    - Item2
-    - Item3
-
-- Action Items:
-
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
----
-## Date: Week 14 - Month Day Year 
-- Topics of discussion
-    - Item1
-    - Item2
-    - Item3
-
-- Action Items:
-
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
 ---
 - **_Add Images and Diagrams Using Excalidraw_**
   - Just draw it and then copy as png paster in the editor
