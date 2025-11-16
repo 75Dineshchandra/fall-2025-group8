@@ -612,7 +612,9 @@ def scale_health_score(raw_score: float) -> float:
 # Week 8 Finetuning with multiple variants of code 
 ```python
 
-
+v1= sales_scaled + lambda_value * health_scaled
+v2= a * total_sales + lambda_value * health_z where a= 1- lambda_value 
+v3= total_sales + lambda_value * health_scores
 ────────────────────────────────────────────────────────────────────────────────
 Lambda     Total Reward       Oracle Reward      Regret          Regret %
 ────────────────────────────────────────────────────────────────────────────────
