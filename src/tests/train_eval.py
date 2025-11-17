@@ -174,7 +174,7 @@ def compute_rewards_for_lambda(lambda_value):
     
     # ===== CORE REWARD CALCULATION =====
     # Base reward: Balance between sales and health based on lambda
-    rewards = total_sales * (1.0 + lambda_value * health_scores_z)
+    rewards = total_sales + (lambda_value * health_scores_z)
     
     # ===== HEALTH-POPULARITY BOOST ENHANCEMENT =====
     # Find "sweet spot" items that are BOTH popular AND healthy
@@ -411,6 +411,141 @@ def print_side_by_side(rand_results: list, lin_results: list):
               f"{d_tot:>12.2f}  {d_reg:>12.2f}   {lin_reg_pct:>9.1f}%")
     print()
 
+def compute_health_scores_aligned(
+    feature_matrix_file: Path,
+    merged_data_file: Path,
+    time_slot_mapping_file: Path,
+) -> np.ndarray:
+    """
+    Returns a numpy array 'health_scores' aligned 1:1 with the rows in feature_matrix.csv
+    (i.e., aligned to metadata_df), using the median HealthScore per (time_slot_id, item).
+
+    Alignment logic mirrors your reward computation:
+      - read feature_matrix (for row order + [time_slot_id, item, item_idx])
+      - map raw merged data to time_slot_id using the saved mapping
+      - aggregate HealthScore per (time_slot_id, description) with median
+      - left-merge onto feature rows to preserve order (1:1 alignment)
+      - fill missing with global median
+    """
+    # 1) Row skeleton from feature_matrix to preserve order
+    fm = pd.read_csv(feature_matrix_file, low_memory=False)
+    rows_meta = fm[["time_slot_id", "item", "item_idx"]].copy()
+    rows_meta["time_slot_id"] = pd.to_numeric(rows_meta["time_slot_id"], errors="coerce").astype(int)
+    rows_meta["item"] = rows_meta["item"].astype(str)
+
+    # 2) Load raw merged and map to time slots
+    merged = pd.read_csv(merged_data_file, low_memory=False)
+
+    # clean text for consistent matching
+    merged["date"] = merged["date"].astype(str).str.strip()
+    merged["school_name"] = merged["school_name"].astype(str).str.strip()
+    merged["time_of_day"] = merged["time_of_day"].astype(str).str.strip()
+    merged["description"] = merged["description"].astype(str).str.strip()
+
+    # time-slot mapping
+    ts = pd.read_csv(time_slot_mapping_file, low_memory=False)
+    ts_map = dict(zip(
+        zip(ts["date"].astype(str), ts["school_name"].astype(str), ts["time_of_day"].astype(str)),
+        ts["time_slot_id"].astype(int)
+    ))
+
+    merged["time_slot_key"] = list(zip(merged["date"], merged["school_name"], merged["time_of_day"]))
+    merged["time_slot_id"] = merged["time_slot_key"].map(ts_map)
+    merged = merged.dropna(subset=["time_slot_id"]).copy()
+    merged["time_slot_id"] = merged["time_slot_id"].astype(int)
+
+    # 3) Aggregate HealthScore per (time_slot_id, description)
+    agg = merged.groupby(["time_slot_id", "description"], as_index=False).agg(
+        health_score=("HealthScore", "median")
+    )
+
+    # 4) Align to feature_matrix row order
+    aligned = rows_meta.merge(
+        agg,
+        left_on=["time_slot_id", "item"],
+        right_on=["time_slot_id", "description"],
+        how="left",
+        validate="m:1",
+    )
+
+    # 5) Fill missing with global median
+    hs = aligned["health_score"].to_numpy(dtype=float)
+    median_h = np.nanmedian(hs)
+    hs = np.where(np.isnan(hs), median_h, hs)
+
+    return hs
+
+def run_health_first_eval_on_reward(
+    metadata_df: pd.DataFrame,
+    health_scores: np.ndarray,   # aligned 1:1 with metadata_df rows
+    rewards: np.ndarray,         # λ-reward aligned 1:1 with metadata_df rows
+    *,
+    top_k: int = 1,
+    seed: int = 42,
+    lambda_value: float = None,
+) -> dict:
+    """
+    Health-first rule:
+      • For each time slot (decision point), select the top-K rows by HealthScore (descending).
+      • Break ties by λ-reward (descending) to avoid row-order bias.
+      • Evaluate totals and regret using λ-reward so results are comparable to Random/LinUCB.
+
+    Returns:
+      {steps, total_reward, oracle_reward, regret, avg_reward, lambda, seed, top_k}
+    """
+    rng = np.random.default_rng(seed)
+
+    # Group row indices by time slot once
+    rows_by_time_slot = metadata_df.groupby("time_slot_id", sort=True).groups
+    num_time_slots = len(rows_by_time_slot)
+
+    total_reward_sum = 0.0
+    oracle_reward_sum = 0.0
+
+    for time_slot_id, row_indices_in_slot in rows_by_time_slot.items():
+        slot_row_indices = np.asarray(row_indices_in_slot, dtype=int)
+        if slot_row_indices.size == 0:
+            continue
+
+        # Per-slot vectors
+        slot_health_scores = health_scores[slot_row_indices]
+        slot_lambda_rewards = rewards[slot_row_indices]
+
+        # OPTIONAL: random tie-breaks (keep commented to remain deterministic)
+        # slot_lambda_rewards = slot_lambda_rewards + rng.normal(0.0, 1e-12, size=slot_lambda_rewards.size)
+
+        # Selection order: primary = Health desc, secondary = λ-reward desc
+        # np.lexsort uses last key as primary → pass (-reward, -health) → primary is -health (i.e., Health desc)
+        selection_order = np.lexsort((-slot_lambda_rewards, -slot_health_scores))
+        k = min(top_k, slot_row_indices.size)
+        chosen_row_indices = slot_row_indices[selection_order[:k]]
+
+        # Evaluate chosen set under λ-reward
+        total_reward_sum += float(np.sum(rewards[chosen_row_indices]))
+
+        # Oracle under λ-reward: top-K by reward desc for the same slot
+        oracle_order = np.argsort(-slot_lambda_rewards)
+        oracle_row_indices = slot_row_indices[oracle_order[:k]]
+        oracle_reward_sum += float(np.sum(rewards[oracle_row_indices]))
+
+    regret_value = oracle_reward_sum - total_reward_sum
+    avg_reward_per_slot = total_reward_sum / max(num_time_slots, 1)
+
+    return {
+        "steps": int(num_time_slots),
+        "total_reward": float(total_reward_sum),
+        "oracle_reward": float(oracle_reward_sum),
+        "regret": float(regret_value),
+        "avg_reward": float(avg_reward_per_slot),
+        "lambda": float(lambda_value) if lambda_value is not None else None,
+        "seed": int(seed),
+        "top_k": int(top_k),
+    }
+
+
+
+
+
 
 def main():
     """
@@ -440,10 +575,17 @@ def main():
     print(f"Testing lambda values: {lambda_values_to_test}")
     print("Lower lambda = more popularity focused, Higher lambda = more health focused\n")
 
-    all_results = []      # LinUCB results per λ
-    rand_results = []     # Random baseline results per λ
-    all_models = {}       # Trained LinUCB models per λ
 
+    # Build aligned health scores once (re-use for all comparisons)
+    health_scores = compute_health_scores_aligned(
+        feature_matrix_file=feature_matrix_file,
+        merged_data_file=merged_data_file,
+        time_slot_mapping_file=time_slot_mapping_file,
+    )
+    health_results = []
+    rand_results = []
+    all_results = []
+    all_models = {}
 
     for lambda_value in lambda_values_to_test:
         print(f"\n--- Lambda = {lambda_value} ---")
@@ -462,10 +604,19 @@ def main():
             lambda_value=lambda_value,  # <-- include λ so it's recorded
             verbose=False,
         )
-
-
         rand["lambda"] = lambda_value
         rand_results.append(rand)
+
+            # Health-first selection, evaluated on λ-reward
+        health_first = run_health_first_eval_on_reward(
+            metadata_df=metadata_df,
+            health_scores=health_scores,   # selection metric (fixed)
+            rewards=rewards,               # evaluation metric (changes per λ)
+            top_k=1,
+            seed=42,
+            lambda_value=lambda_value,
+        )
+        health_results.append(health_first)
 
         # Train LinUCB
         results, model = train_linucb_model(
@@ -485,18 +636,29 @@ def main():
         model.save(str(model_filepath))
         print(f"Saved model to {model_filename}")
 
+    
       # LinUCB summary
     print_ablation_summary("LinUCB", all_results)
 
     # Random summary (requires you filled rand_results in your loop)
     print_ablation_summary("Random", rand_results)
 
+    print_ablation_summary("Health-First", health_results)
+
 #    Optional: side-by-side comparison
     print_side_by_side(rand_results, all_results)
 
-
     plot_bar_random_vs_linucb(rand, results, lambda_value)
 
+
+    # lengths & key order
+    assert len(health_scores) == len(metadata_df)
+    fm_keys = pd.read_csv(feature_matrix_file, usecols=["time_slot_id","item","item_idx"])
+    assert (metadata_df[["time_slot_id","item","item_idx"]].values == fm_keys.values).all()
+
+    # no weird NaNs or inversions
+    print("health_scores stats:", np.nanmin(health_scores), np.nanmax(health_scores), np.nanmean(health_scores))
+    print("unique health values (first 20):", np.unique(health_scores)[:20])
 
     # ===== STEP 3: ANALYZE RESULTS =====
     print("\n" + "=" * 70)
