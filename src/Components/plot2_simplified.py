@@ -1,7 +1,7 @@
 """
 SIMPLIFIED PLOT2.PY - Line by Line Explanation
 
-PURPOSE: Train and compare 3 models (Random, Linear, LinUCB) and plot their performance
+PURPOSE: Train and compare 3 models (Random, Health-First, LinUCB) and plot their performance
 
 KEY CONCEPTS:
 1. REWARD = sales_scaled + λ * health_scaled
@@ -37,8 +37,7 @@ SRC = HERE if HERE.name == "src" else HERE.parent
 sys.path.insert(0, str(SRC))
 
 # Import model and helper functions
-from Components.model import LinUCB
-from tests.train_eval import load_feature_matrix, load_action_matrix, compute_rewards_for_lambda
+from Components.model import LinUCB, load_feature_matrix, load_action_matrix, compute_rewards_for_lambda
 
 # File paths
 DATA_DIR = SRC / "data"
@@ -277,19 +276,81 @@ def build_tensors(feature_array, metadata_df, rewards, action_matrix):
 
 
 # ============================================================================
+# HEALTH-FIRST POLICY FUNCTIONS
+# ============================================================================
+
+def compute_health_scores_aligned(
+    feature_matrix_file: Path,
+    merged_data_file: Path,
+    time_slot_mapping_file: Path,
+) -> np.ndarray:
+    """
+    Returns a numpy array 'health_scores' aligned 1:1 with the rows in feature_matrix.csv
+    (i.e., aligned to metadata_df), using the median HealthScore per (time_slot_id, item).
+    """
+    # 1) Row skeleton from feature_matrix to preserve order
+    fm = pd.read_csv(feature_matrix_file, low_memory=False)
+    rows_meta = fm[["time_slot_id", "item", "item_idx"]].copy()
+    rows_meta["time_slot_id"] = pd.to_numeric(rows_meta["time_slot_id"], errors="coerce").astype(int)
+    rows_meta["item"] = rows_meta["item"].astype(str)
+
+    # 2) Load raw merged and map to time slots
+    merged = pd.read_csv(merged_data_file, low_memory=False)
+    # clean text for consistent matching
+    merged["date"] = merged["date"].astype(str).str.strip()
+    merged["school_name"] = merged["school_name"].astype(str).str.strip()
+    merged["time_of_day"] = merged["time_of_day"].astype(str).str.strip()
+    merged["description"] = merged["description"].astype(str).str.strip()
+
+    # time-slot mapping
+    ts = pd.read_csv(time_slot_mapping_file, low_memory=False)
+    ts_map = dict(zip(
+        zip(ts["date"].astype(str), ts["school_name"].astype(str), ts["time_of_day"].astype(str)),
+        ts["time_slot_id"].astype(int)
+    ))
+
+    merged["time_slot_key"] = list(zip(merged["date"], merged["school_name"], merged["time_of_day"]))
+    merged["time_slot_id"] = merged["time_slot_key"].map(ts_map)
+    merged = merged.dropna(subset=["time_slot_id"]).copy()
+    merged["time_slot_id"] = merged["time_slot_id"].astype(int)
+
+    # 3) Aggregate HealthScore per (time_slot_id, description)
+    agg = merged.groupby(["time_slot_id", "description"], as_index=False).agg(
+        health_score=("HealthScore", "median")
+    )
+
+    # 4) Align to feature_matrix row order
+    aligned = rows_meta.merge(
+        agg,
+        left_on=["time_slot_id", "item"],
+        right_on=["time_slot_id", "description"],
+        how="left",
+        validate="m:1",
+    )
+
+    # 5) Fill missing with global median
+    hs = aligned["health_score"].to_numpy(dtype=float)
+    median_h = np.nanmedian(hs)
+    hs = np.where(np.isnan(hs), median_h, hs)
+
+    return hs
+
+
+# ============================================================================
 # TRAINING FUNCTIONS
 # ============================================================================
 
-def train_model_and_track(model_type, feature_array, action_matrix, metadata_df, rewards, **kwargs):
+def train_model_and_track(model_type, feature_array, action_matrix, metadata_df, rewards, health_scores=None, **kwargs):
     """
     Train a model and track performance over time.
     
     Args:
-        model_type: "random", "linear", or "linucb"
+        model_type: "random", "health_first", or "linucb"
         feature_array: (N, d) array of features
         action_matrix: (T, A) array of available actions
         metadata_df: DataFrame with (time_slot_id, item_idx, item) mappings
         rewards: (N,) array of rewards
+        health_scores: (N,) array of health scores (required for health_first)
         **kwargs: Model-specific parameters
     
     Returns:
@@ -303,15 +364,30 @@ def train_model_and_track(model_type, feature_array, action_matrix, metadata_df,
     )
     T, A, d = data_TAD.shape
     
+    # Build health scores tensor aligned with rewards_TA
+    health_scores_TA = None
+    if model_type == "health_first":
+        if health_scores is None:
+            raise ValueError("health_scores required for health_first model")
+        # Build health scores tensor (T, A) aligned with rewards_TA
+        health_scores_TA = np.zeros((T, A), dtype=np.float32)
+        for idx, row in metadata_df.iterrows():
+            t = int(row['time_slot_id'])
+            a = int(row['item_idx'])
+            if t < T and a < A:
+                if isinstance(metadata_df.index, pd.RangeIndex):
+                    array_idx = idx
+                else:
+                    array_idx = metadata_df.index.get_loc(idx)
+                health_scores_TA[t, a] = float(health_scores[array_idx])
+    
     # Initialize model
     if model_type == "random":
         rng = np.random.default_rng(kwargs.get("seed", 42))
         model = None
-    elif model_type == "linear":
-        from sklearn.linear_model import Ridge
-        model = Ridge(alpha=kwargs.get("ridge", 1.0))
-        X_train = []
-        y_train = []
+    elif model_type == "health_first":
+        # Health-first is rule-based, no model needed
+        model = None
     elif model_type == "linucb":
         model = LinUCB(
             d=d, 
@@ -340,17 +416,13 @@ def train_model_and_track(model_type, feature_array, action_matrix, metadata_df,
         # Select action
         if model_type == "random":
             a = int(rng.choice(avail))
-        elif model_type == "linear":
-            if len(X_train) > 0:
-                # Retrain model and predict
-                model.fit(np.array(X_train), np.array(y_train))
-                feats_avail = np.array([data_TAD[t, a] for a in avail])
-                pred_rewards = model.predict(feats_avail)
-                best_idx = np.argmax(pred_rewards)
-                a = int(avail[best_idx])
-            else:
-                # No training data yet - random
-                a = int(np.random.choice(avail))
+        elif model_type == "health_first":
+            # Health-first selection: primary = Health desc, secondary = reward desc
+            slot_health_scores = health_scores_TA[t, avail]
+            slot_rewards = rewards_TA[t, avail]
+            # Use lexsort: last key is primary, so (-slot_rewards, -slot_health_scores) means health desc is primary
+            selection_order = np.lexsort((-slot_rewards, -slot_health_scores))
+            a = int(avail[selection_order[0]])
         elif model_type == "linucb":
             feats = {a: data_TAD[t, a] for a in avail}
             a = model.select_action(list(avail), feats)
@@ -393,9 +465,8 @@ def train_model_and_track(model_type, feature_array, action_matrix, metadata_df,
         # Update model
         if model_type == "random":
             pass  # No update needed
-        elif model_type == "linear":
-            X_train.append(data_TAD[t, a])
-            y_train.append(r)
+        elif model_type == "health_first":
+            pass  # Rule-based, no update needed
         elif model_type == "linucb":
             model.update_arm(a, data_TAD[t, a], r)
         
@@ -423,12 +494,12 @@ def train_model_and_track(model_type, feature_array, action_matrix, metadata_df,
 # PLOTTING FUNCTION
 # ============================================================================
 
-def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
+def plot_comparison(df_random, df_health_first, df_linucb, use_scaled=True):
     """
     Plot comparison of all 3 models.
     
     Args:
-        df_random, df_linear, df_linucb: DataFrames with performance metrics
+        df_random, df_health_first, df_linucb: DataFrames with performance metrics
         use_scaled: If True, plot scaled values (0-10). If False, plot raw values.
     
     Plots 4 panels:
@@ -439,23 +510,23 @@ def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
     """
     # Calculate final metrics
     final_reward_linucb = df_linucb["roll_reward"].iloc[-1]
-    final_reward_linear = df_linear["roll_reward"].iloc[-1]
+    final_reward_health_first = df_health_first["roll_reward"].iloc[-1]
     final_reward_random = df_random["roll_reward"].iloc[-1]
     
     final_regret_linucb = df_linucb["roll_regret_pct"].iloc[-1]
-    final_regret_linear = df_linear["roll_regret_pct"].iloc[-1]
+    final_regret_health_first = df_health_first["roll_regret_pct"].iloc[-1]
     final_regret_random = df_random["roll_regret_pct"].iloc[-1]
     
     improvement_vs_random = ((final_reward_linucb - final_reward_random) / final_reward_random * 100) if final_reward_random > 0 else 0
-    improvement_vs_linear = ((final_reward_linucb - final_reward_linear) / final_reward_linear * 100) if final_reward_linear > 0 else 0
+    improvement_vs_health_first = ((final_reward_linucb - final_reward_health_first) / final_reward_health_first * 100) if final_reward_health_first > 0 else 0
     regret_reduction_vs_random = final_regret_random - final_regret_linucb
-    regret_reduction_vs_linear = final_regret_linear - final_regret_linucb
+    regret_reduction_vs_health_first = final_regret_health_first - final_regret_linucb
     
     # Create figure
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
     value_type = "scaled" if use_scaled else "raw"
     fig.suptitle(
-        f"Model Comparison: LinUCB > Linear > Random (λ={LAMBDA}) - {value_type.upper()} values",
+        f"Model Comparison: LinUCB (Learning) vs Health-First (Rule) vs Random (λ={LAMBDA}) - {value_type.upper()} values",
         fontsize=16, fontweight="bold", y=0.995
     )
     
@@ -464,8 +535,8 @@ def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
     ax = axes[0, 0]
     ax.plot(df_random["t"], df_random["roll_reward"], lw=2.5, color="tab:red",
             label=f"Random ({final_reward_random:.2f})", alpha=0.7, linestyle="--")
-    ax.plot(df_linear["t"], df_linear["roll_reward"], lw=2.5, color="tab:orange",
-            label=f"Linear ({final_reward_linear:.2f})", alpha=0.8, linestyle="-.")
+    ax.plot(df_health_first["t"], df_health_first["roll_reward"], lw=2.5, color="tab:green",
+            label=f"Health-First ({final_reward_health_first:.2f})", alpha=0.8, linestyle="-.")
     ax.plot(df_linucb["t"], df_linucb["roll_reward"], lw=3.0, color="tab:blue",
             label=f"LinUCB ({final_reward_linucb:.2f}) [BEST]", alpha=1.0, linestyle="-")
     ax.set_title(f"Rolling Avg Reward (window={ROLL_W}) - Higher is Better", fontweight="bold")
@@ -474,7 +545,7 @@ def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
     ax.legend(loc="lower right", framealpha=0.9)
     ax.grid(True, alpha=0.3)
     ax.text(0.02, 0.98,
-            f"LinUCB: +{improvement_vs_random:.1f}% vs Random, +{improvement_vs_linear:.1f}% vs Linear",
+            f"LinUCB: +{improvement_vs_random:.1f}% vs Random, +{improvement_vs_health_first:.1f}% vs Health-First",
             transform=ax.transAxes, fontsize=10, verticalalignment='top',
             bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.7))
     
@@ -483,8 +554,8 @@ def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
     ax = axes[0, 1]
     ax.plot(df_random["t"], df_random["roll_regret_pct"], lw=2.5, color="tab:red",
             label=f"Random ({final_regret_random:.1f}%)", alpha=0.7, linestyle="--")
-    ax.plot(df_linear["t"], df_linear["roll_regret_pct"], lw=2.5, color="tab:orange",
-            label=f"Linear ({final_regret_linear:.1f}%)", alpha=0.8, linestyle="-.")
+    ax.plot(df_health_first["t"], df_health_first["roll_regret_pct"], lw=2.5, color="tab:green",
+            label=f"Health-First ({final_regret_health_first:.1f}%)", alpha=0.8, linestyle="-.")
     ax.plot(df_linucb["t"], df_linucb["roll_regret_pct"], lw=3.0, color="tab:blue",
             label=f"LinUCB ({final_regret_linucb:.1f}%) [BEST]", alpha=1.0, linestyle="-")
     ax.axhline(0, ls="--", lw=1.2, color="tab:green", alpha=0.6)
@@ -495,7 +566,7 @@ def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
     ax.legend(loc="upper right", framealpha=0.9)
     ax.grid(True, alpha=0.3)
     ax.text(0.02, 0.98,
-            f"LinUCB: {regret_reduction_vs_random:.1f}% lower than Random, {regret_reduction_vs_linear:.1f}% lower than Linear",
+            f"LinUCB: {regret_reduction_vs_random:.1f}% lower than Random, {regret_reduction_vs_health_first:.1f}% lower than Health-First",
             transform=ax.transAxes, fontsize=10, verticalalignment='top',
             bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.7))
     
@@ -503,13 +574,13 @@ def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
     if use_scaled:
         # SCALED: Range 0-10
         final_sales_random = df_random["roll_sales_scaled"].iloc[-1]
-        final_sales_linear = df_linear["roll_sales_scaled"].iloc[-1]
+        final_sales_health_first = df_health_first["roll_sales_scaled"].iloc[-1]
         final_sales_linucb = df_linucb["roll_sales_scaled"].iloc[-1]
         ax = axes[1, 0]
         ax.plot(df_random["t"], df_random["roll_sales_scaled"], lw=2.5, color="tab:red",
                 label=f"Random ({final_sales_random:.2f})", alpha=0.7, linestyle="--")
-        ax.plot(df_linear["t"], df_linear["roll_sales_scaled"], lw=2.5, color="tab:orange",
-                label=f"Linear ({final_sales_linear:.2f})", alpha=0.8, linestyle="-.")
+        ax.plot(df_health_first["t"], df_health_first["roll_sales_scaled"], lw=2.5, color="tab:green",
+                label=f"Health-First ({final_sales_health_first:.2f})", alpha=0.8, linestyle="-.")
         ax.plot(df_linucb["t"], df_linucb["roll_sales_scaled"], lw=3.0, color="tab:blue",
                 label=f"LinUCB ({final_sales_linucb:.2f}) [BEST]", alpha=1.0, linestyle="-")
         ax.set_title(f"Rolling Avg Sales (SCALED to [0,10], window={ROLL_W})", fontweight="bold")
@@ -518,13 +589,13 @@ def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
     else:
         # RAW: Actual sales units (0-942 range)
         final_sales_random = df_random["roll_sales"].iloc[-1]
-        final_sales_linear = df_linear["roll_sales"].iloc[-1]
+        final_sales_health_first = df_health_first["roll_sales"].iloc[-1]
         final_sales_linucb = df_linucb["roll_sales"].iloc[-1]
         ax = axes[1, 0]
         ax.plot(df_random["t"], df_random["roll_sales"], lw=2.5, color="tab:red",
                 label=f"Random ({final_sales_random:.0f})", alpha=0.7, linestyle="--")
-        ax.plot(df_linear["t"], df_linear["roll_sales"], lw=2.5, color="tab:orange",
-                label=f"Linear ({final_sales_linear:.0f})", alpha=0.8, linestyle="-.")
+        ax.plot(df_health_first["t"], df_health_first["roll_sales"], lw=2.5, color="tab:green",
+                label=f"Health-First ({final_sales_health_first:.0f})", alpha=0.8, linestyle="-.")
         ax.plot(df_linucb["t"], df_linucb["roll_sales"], lw=3.0, color="tab:blue",
                 label=f"LinUCB ({final_sales_linucb:.0f}) [BEST]", alpha=1.0, linestyle="-")
         ax.set_title(f"Rolling Avg Sales (RAW units, window={ROLL_W})", fontweight="bold")
@@ -537,13 +608,13 @@ def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
     if use_scaled:
         # SCALED: Range 0-10 (re-normalized from CSV range 4.01-5.71)
         final_health_random = df_random["roll_health_scaled"].iloc[-1]
-        final_health_linear = df_linear["roll_health_scaled"].iloc[-1]
+        final_health_health_first = df_health_first["roll_health_scaled"].iloc[-1]
         final_health_linucb = df_linucb["roll_health_scaled"].iloc[-1]
         ax = axes[1, 1]
         ax.plot(df_random["t"], df_random["roll_health_scaled"], lw=2.5, color="tab:red",
                 label=f"Random ({final_health_random:.2f})", alpha=0.7, linestyle="--")
-        ax.plot(df_linear["t"], df_linear["roll_health_scaled"], lw=2.5, color="tab:orange",
-                label=f"Linear ({final_health_linear:.2f})", alpha=0.8, linestyle="-.")
+        ax.plot(df_health_first["t"], df_health_first["roll_health_scaled"], lw=2.5, color="tab:green",
+                label=f"Health-First ({final_health_health_first:.2f})", alpha=0.8, linestyle="-.")
         ax.plot(df_linucb["t"], df_linucb["roll_health_scaled"], lw=3.0, color="tab:blue",
                 label=f"LinUCB ({final_health_linucb:.2f}) [BEST]", alpha=1.0, linestyle="-")
         ax.set_title(f"Rolling Avg Health (SCALED to [0,10], window={ROLL_W})", fontweight="bold")
@@ -552,13 +623,13 @@ def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
     else:
         # RAW: CSV health scores (4.01-5.71 range)
         final_health_random = df_random["roll_health"].iloc[-1]
-        final_health_linear = df_linear["roll_health"].iloc[-1]
+        final_health_health_first = df_health_first["roll_health"].iloc[-1]
         final_health_linucb = df_linucb["roll_health"].iloc[-1]
         ax = axes[1, 1]
         ax.plot(df_random["t"], df_random["roll_health"], lw=2.5, color="tab:red",
                 label=f"Random ({final_health_random:.2f})", alpha=0.7, linestyle="--")
-        ax.plot(df_linear["t"], df_linear["roll_health"], lw=2.5, color="tab:orange",
-                label=f"Linear ({final_health_linear:.2f})", alpha=0.8, linestyle="-.")
+        ax.plot(df_health_first["t"], df_health_first["roll_health"], lw=2.5, color="tab:green",
+                label=f"Health-First ({final_health_health_first:.2f})", alpha=0.8, linestyle="-.")
         ax.plot(df_linucb["t"], df_linucb["roll_health"], lw=3.0, color="tab:blue",
                 label=f"LinUCB ({final_health_linucb:.2f}) [BEST]", alpha=1.0, linestyle="-")
         ax.set_title(f"Rolling Avg Health (RAW scores, window={ROLL_W})", fontweight="bold")
@@ -583,7 +654,7 @@ def plot_comparison(df_random, df_linear, df_linucb, use_scaled=True):
 def main():
     """Main function: Train models and plot results."""
     print("=" * 72)
-    print("MODEL COMPARISON: RANDOM vs LINEAR vs LINUCB")
+    print("MODEL COMPARISON: RANDOM vs HEALTH-FIRST vs LINUCB")
     print("=" * 72)
     
     # Load data
@@ -599,47 +670,80 @@ def main():
         time_slot_mapping_file=str(TIMESLOTS)
     )
     
+    # Compute health scores aligned with feature matrix rows
+    print("\n[0/4] Computing health scores...")
+    health_scores = compute_health_scores_aligned(
+        feature_matrix_file=FEATURE_MATRIX,
+        merged_data_file=MERGED_DATA,
+        time_slot_mapping_file=TIMESLOTS,
+    )
+    print(f"Computed {len(health_scores)} health scores")
+    
     # Train all three models
-    print("\n[1/3] Training Random baseline...")
+    print("\n[1/3] Training Random baseline (Rule-Based)...")
     df_random = train_model_and_track("random", X, A, meta, rewards_vec, seed=42)
     
-    print("\n[2/3] Training Linear baseline...")
-    df_linear = train_model_and_track("linear", X, A, meta, rewards_vec, ridge=1.0)
+    print("\n[2/3] Training Health-First baseline (Rule-Based)...")
+    df_health_first = train_model_and_track("health_first", X, A, meta, rewards_vec, health_scores=health_scores)
     
-    print("\n[3/3] Training LinUCB...")
+    print("\n[3/3] Training LinUCB (Learning-Based)...")
     df_linucb = train_model_and_track("linucb", X, A, meta, rewards_vec, alpha=1.0, ridge=1.0)
     
     # Save data
     out_csv_random = RESULTS_DIR / f"random_performance_lambda_{LAMBDA}_rolling4_simplified.csv"
-    out_csv_linear = RESULTS_DIR / f"linear_performance_lambda_{LAMBDA}_rolling4_simplified.csv"
+    out_csv_health_first = RESULTS_DIR / f"health_first_performance_lambda_{LAMBDA}_rolling4_simplified.csv"
     out_csv_linucb = RESULTS_DIR / f"linucb_performance_lambda_{LAMBDA}_rolling4_simplified.csv"
     
     df_random.to_csv(out_csv_random, index=False)
-    df_linear.to_csv(out_csv_linear, index=False)
+    df_health_first.to_csv(out_csv_health_first, index=False)
     df_linucb.to_csv(out_csv_linucb, index=False)
     
     print(f"\nSaved performance CSVs:")
     print(f"  - Random: {out_csv_random}")
-    print(f"  - Linear: {out_csv_linear}")
+    print(f"  - Health-First: {out_csv_health_first}")
     print(f"  - LinUCB: {out_csv_linucb}")
     
     # Plot comparison
     print("\n[4/4] Generating plots...")
     print("\n  Generating SCALED plots (aligned with model training)...")
-    plot_comparison(df_random, df_linear, df_linucb, use_scaled=True)
+    plot_comparison(df_random, df_health_first, df_linucb, use_scaled=True)
     
     print("\n  Generating RAW plots (real-world impact)...")
-    plot_comparison(df_random, df_linear, df_linucb, use_scaled=False)
+    plot_comparison(df_random, df_health_first, df_linucb, use_scaled=False)
     
     # Print summary
     print("\n" + "=" * 72)
     print(" FINAL SUMMARY")
     print("=" * 72)
-    print(f"\n RANKING (by Final Reward):")
-    print(f"   1. LinUCB:  {df_linucb['roll_reward'].iloc[-1]:.3f} (Regret: {df_linucb['roll_regret_pct'].iloc[-1]:.1f}%) [BEST]")
-    print(f"   2. Linear:  {df_linear['roll_reward'].iloc[-1]:.3f} (Regret: {df_linear['roll_regret_pct'].iloc[-1]:.1f}%)")
-    print(f"   3. Random:  {df_random['roll_reward'].iloc[-1]:.3f} (Regret: {df_random['roll_regret_pct'].iloc[-1]:.1f}%)")
-    print("\n CONCLUSION: LinUCB outperforms both Linear and Random baselines!")
+    
+    # Get final metrics
+    linucb_reward = df_linucb['roll_reward'].iloc[-1]
+    linucb_health = df_linucb['roll_health_scaled'].iloc[-1]
+    linucb_regret = df_linucb['roll_regret_pct'].iloc[-1]
+    
+    health_first_reward = df_health_first['roll_reward'].iloc[-1]
+    health_first_health = df_health_first['roll_health_scaled'].iloc[-1]
+    health_first_regret = df_health_first['roll_regret_pct'].iloc[-1]
+    
+    random_reward = df_random['roll_reward'].iloc[-1]
+    random_health = df_random['roll_health_scaled'].iloc[-1]
+    random_regret = df_random['roll_regret_pct'].iloc[-1]
+    
+    print(f"\n RANKING (by Final Reward = sales_scaled + λ*health_scaled):")
+    print(f"   1. LinUCB (Learning):     Reward={linucb_reward:.3f}, Health={linucb_health:.2f}, Regret={linucb_regret:.1f}% [BEST REWARD]")
+    print(f"   2. Health-First (Rule):   Reward={health_first_reward:.3f}, Health={health_first_health:.2f}, Regret={health_first_regret:.1f}%")
+    print(f"   3. Random (Rule):          Reward={random_reward:.3f}, Health={random_health:.2f}, Regret={random_regret:.1f}%")
+    
+    print(f"\n RANKING (by Health Score):")
+    print(f"   1. Health-First (Rule):   Health={health_first_health:.2f} [BEST HEALTH]")
+    print(f"   2. LinUCB (Learning):     Health={linucb_health:.2f}")
+    print(f"   3. Random (Rule):          Health={random_health:.2f}")
+    
+    print(f"\n TRADE-OFF ANALYSIS:")
+    print(f"   • LinUCB achieves {((linucb_reward - health_first_reward) / health_first_reward * 100):.1f}% higher reward by balancing sales + health")
+    print(f"   • Health-First achieves {((health_first_health - linucb_health) / linucb_health * 100):.1f}% higher health by prioritizing nutrition")
+    print(f"   • Choose LinUCB if optimizing for overall reward (sales + health balance)")
+    print(f"   • Choose Health-First if maximizing health/nutrition is the primary goal")
     print("=" * 72)
 
 

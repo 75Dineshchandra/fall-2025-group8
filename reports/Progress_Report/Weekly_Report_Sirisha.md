@@ -1037,32 +1037,129 @@ def plot_rolling4(df):
 ## Date: Week 9 - November 5 - November 12, 2025
 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Created comprehensive Results section (Section 6) for research paper
+    - Fact-checked and verified all performance metrics against CSV data files
+    - Analyzed model comparison results (LinUCB vs Health-First vs Random baselines)
+    - Documented data fraction ablation study results
+    - Prepared figure references and table formatting for paper integration
+    - Verified continuous regret calculation methodology
 
 - Action Items:
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [x] Created `research_paper/RESULTS_SECTION.md` with complete Section 6 content
+* [x] Verified all final performance metrics (reward, regret %, sales, health scores)
+* [x] Fact-checked improvement calculations (85.7% reward improvement, 54.3% regret reduction)
+* [x] Documented Table 4: Data Fraction Ablation study results
+* [x] Added proper figure references (Figure 3: Continuous Regret, Figure 4: Model Comparison)
+* [x] Created comprehensive results documentation structure
+
+- **_Code Snippet_**
+
+```python
+# Verification script for Results section metrics
+import pandas as pd
+import numpy as np
+
+# Load performance CSV files
+linucb = pd.read_csv('src/tests/results/linucb_performance_lambda_0.3_rolling4_simplified.csv')
+health = pd.read_csv('src/tests/results/health_first_performance_lambda_0.3_rolling4_simplified.csv')
+random = pd.read_csv('src/tests/results/random_performance_lambda_0.3_rolling4_simplified.csv')
+
+# Get final values
+l_final = linucb.iloc[-1]
+h_final = health.iloc[-1]
+r_final = random.iloc[-1]
+
+print('LinUCB Final Values:')
+print(f'  Reward: {l_final["roll_reward"]:.2f}')
+print(f'  Regret %: {l_final["roll_regret_pct"]:.2f}%')
+print(f'  Sales: {l_final["roll_sales"]:.2f}')
+print(f'  Health: {l_final["roll_health"]:.2f}')
+
+print('\nHealth-First Final Values:')
+print(f'  Reward: {h_final["roll_reward"]:.2f}')
+print(f'  Regret %: {h_final["roll_regret_pct"]:.2f}%')
+print(f'  Sales: {h_final["roll_sales"]:.2f}')
+print(f'  Health: {h_final["roll_health"]:.2f}')
+
+print('\nRandom Final Values:')
+print(f'  Reward: {r_final["roll_reward"]:.2f}')
+print(f'  Regret %: {r_final["roll_regret_pct"]:.2f}%')
+print(f'  Sales: {r_final["roll_sales"]:.2f}')
+print(f'  Health: {r_final["roll_health"]:.2f}')
+
+# Calculate improvements
+print('\nImprovements:')
+print(f'LinUCB vs Health-First:')
+print(f'  Reward: {((l_final["roll_reward"] - h_final["roll_reward"]) / h_final["roll_reward"] * 100):.1f}%')
+print(f'  Regret reduction: {h_final["roll_regret_pct"] - l_final["roll_regret_pct"]:.1f}%')
+print(f'  Sales: {((l_final["roll_sales"] - h_final["roll_sales"]) / h_final["roll_sales"] * 100):.1f}%')
+```
+
+- **_Key Results Documented_**
+
+**Final Performance Metrics (λ = 0.3):**
+- LinUCB: Reward 8.35, Regret 27.55%, Sales 100.18, Health 5.24
+- Health-First: Reward 4.50, Regret 60.39%, Sales 38.10, Health 5.62
+- Random: Reward 4.51, Regret 60.01%, Sales 48.33, Health 4.95
+
+**Key Findings:**
+- LinUCB achieves 85.7% higher reward than Health-First
+- LinUCB reduces regret by 54.3% compared to Health-First
+- LinUCB achieves 163% higher sales than Health-First while maintaining competitive health scores
 
 ---
 
 ## Date: Week 10 - November 12 - November 19, 2025
 
 - Topics of discussion
-    - Item1
-    - Item2
-    - Item3
+    - Created comprehensive README documentation for results directory
+    - Finalized Results section with proper figure and table references
+    - Ensured Results section flows seamlessly with Methodology section
+    - Verified all mathematical notation and metric calculations
+    - Prepared Results section for paper integration
+    - Documented visualization files and their usage
 
 - Action Items:
-* [ ] Action Item 1
-* [ ] Action Item 2
-* [ ] Action Item 3
-* [ ] Action Item 4
-* [ ] Action Item 5
+* [x] Created `src/tests/results/README.md` with comprehensive results documentation
+* [x] Finalized Results section structure (6.1, 6.2, 6.3 subsections)
+* [x] Verified figure references point to existing visualization files
+* [x] Ensured consistency with Methodology section terminology
+* [x] Documented all performance CSV files and their structure
+* [x] Added integration notes for paper formatting
+
+- **_Results Section Structure_**
+
+**Section 6.1: Continuous Regret Calculation**
+- Defined regret computation methodology
+- Explained rolling average smoothing approach
+- Referenced Figure 3: Continuous Regret Trajectory
+
+**Section 6.2: Impact of Dataset Size on Performance**
+- Documented data fraction ablation study (0.10 to 1.00)
+- Created Table 4 with complete ablation results
+- Analyzed performance scaling patterns
+
+**Section 6.3: Model-Wise Performance Comparison**
+- Compared LinUCB vs Health-First vs Random baselines
+- Documented four-panel visualization (Figure 4)
+- Analyzed reward, regret, sales, and health metrics
+
+- **_Documentation Created_**
+
+**Results README (`src/tests/results/README.md`):**
+- Directory structure overview
+- CSV file column descriptions
+- Final performance metrics table
+- Visualization file descriptions
+- Ablation study documentation
+- Reproducibility instructions
+- Model loading examples
+
+**Key Features:**
+- Complete file inventory with descriptions
+- Performance metric explanations
+- Figure usage guidelines
+- Experimental setup documentation
 
 ---
 
@@ -1144,6 +1241,8 @@ def plot_rolling4(df):
 | Week 6 | Model debugging | &check; Complete |
 | Week 7 | LinUCB implementation | &check; Complete |
 | Week 8 | Visualization, final updates | &check; Complete |
+| Week 9 | Results section creation, metric verification | &check; Complete |
+| Week 10 | Results documentation, paper integration prep | &check; Complete |
 
 - **_Add flow chart_**
 
