@@ -1,0 +1,161 @@
+sales_item,mapped_items,GramsPerServing,Calories,Protein,Total Carbohydrate,Dietary Fiber,Total Sugars,Added Sugars,Total Fat,Saturated Fat,Trans Fat,Cholesterol,Sodium,Vitamin D (D2 + D3),Calcium,Iron,Potassium,Vitamin A,Vitamin C,HasNutrients,DietaryRestrictions,ReligiousRestrictions,method,n_candidates,sales_volume
+COOKIE,"Vanilla Sugar Cookie, Chocolate Chip Cookie, Dough, Cookie, Ginger Twinkle",18.427175,70,1,12,1,6,5,2,1,0,7,61,1,13,0,49,,,1,,,median_over_topK,5,741935
+CEREAL MEAL,"Cereal, Cinnamon Toasters, Malt-O-Meal, IW (Sub), Cinnamon Chex Cereal, Blueberry Chex Cereal",56,230,3,46,2,12,12,5,1,0,0,320,2,100,15,0,500,6,1,,,median_over_topK,3,573659
+$1.25 CHIPS,"Tortilla Chips, RF Kettle Chips Jalapeno & Cheddar Chips, Doritos Wild White Nacho Flavored Tortilla Chips",39.12231,134,2,19.5,1.5,0,0,5.5,1,0,0,122,0,40,0,54.5,,,0,,,median_over_topK,5,485352
+MINI PANCAKES,"Mini Maple Pancakes, Blueberry Mini Pancakes, Mini Maple Waffles",85.898985,210,4,35,4,11,10.5,7,1,0,5,210,0,59,4,135,1000,0,1,,,median_over_topK,5,471214
+PBJ POWER PACK ELEMENTARY,"PB&J Power Pack, Turkey Pepperoni Power Pack, Turkey & Cheese & Cracker Power Pack",120.135875,360,15,43,5.5,11,7,16,5,0,35,973,0,290,2,305,,13,1,,,median_over_topK,5,469482
+CHEESE PIZZA ELEMENTARY,"Cheese Pizza, Cheese Pizza, Cheese Pizza",141.7475,310,21.5,29.5,3,4.5,0,12,6,0,30,430,0.5,450,2.5,209,500,9,1,,,median_over_topK,5,293071
+$1.00 WATER 16.9oz,"Bottled Water, Watermelon Flavored Dried Cranberries, Cheese Sticks, Baked (Warehouse - effective 9/1)",100,100,1,17,2,4,1,0,0,0,0,10,0,188,2,73.5,6,3,1,,,median_over_topK,5,283261
+CHICKEN TENDERS SECONDARY,"Chicken Tenders Sub, Chicken Tenders, Chicken Alfredo Pasta",141.7475,239,23,18,4,3,0,10,1,0,60,377,3.5,51,1,297,55,0,1,,,median_over_topK,5,279564
+ALC LUNCH ENTREE SECONDARY,"Black Beans - salad bar entree, Chickpeas - salad bar entree, Egg and Cheese Burrito - For Lunch",125.786375,168,6,27,3.5,2,0,4.5,0.5,0,9.5,140,0,61,1.5,104,,,1,,,median_over_topK,5,242260
+ALCJUICE 4OZ $.75,"Apple Juice, Orange Tangerine Juice, Berry Juice",119.918385,60,0,15,0,13,0,0,0,0,0,10,0,14.5,0,200,0,36,1,,,median_over_topK,3,234354
+SPICY CHICKEN ON BUN SECONDARY,"Spicy Breaded Chicken Patty on Bun, Wrap, Spicy Chicken on 6 Inch Tortillas, Spicy Chicken Wrap",171,365,22,44,4.5,2,1,11,1,0,50,615,7,79.5,3.5,130,28,0,1,,,median_over_topK,5,233421
+YOGURT POWER PACK ELEMENTARY,"Peach Yogurt Power Pack, Cherry Vanilla Yogurt Power Pack, Strawberry & Banana Yogurt Power Pack",203,320,14,51,3,16,10,7,4,0,25,392.5,4,499.5,2,300.5,0,0,1,,,median_over_topK,5,228508
+PBJ POWER PACK SECONDARY,"PB&J Power Pack, Turkey Pepperoni Power Pack, Turkey & Cheese & Cracker Power Pack",120.135875,360,15,43,5.5,11,7,16,5,0,35,973,0,290,2,305,,13,1,,,median_over_topK,5,225054
+PEPPERONI PIZZA ELEMENTARY,"Pizza, Turkey Pepperoni, Slice, Turkey Pepperoni Pizza, Turkey Pepperoni Lasagna",149.68536,336,21,30,3,6,1,13,5,0,35,569,0,443,2,260,450,7.5,1,,,median_over_topK,5,205861
+CHICKEN TENDERS ELEMENTARY,"Chicken Tenders Sub, Chicken Tenders, Chicken Alfredo Pasta",141.7475,239,23,18,4,3,0,10,1,0,60,377,3.5,51,1,297,55,0,1,,,median_over_topK,5,197570
+BAGEL W/CREAM CHEESE,Bagel + Cream Cheese,82.3495,240,7,37,1,5,1,7,4,0,20,400,0,62,2,10,0,0,2,0,0,composite_sum,2,186523
+$1.25 POPCORN,"Sweet N' Salty Popcorn, Smartfood RF White Cheddar Popcorn, Cheese Sticks, Baked (Warehouse - effective 9/1)",28.3495,215,9,21,3,5.5,5,7.5,3,0,14,351,0,360,2,60,6,6,1,,,median_over_topK,5,153818
+CHEESE STICKS W/MARINARA SECONDARY,"Cheese Sticks, Baked (Warehouse - effective 9/1) + Penne Pasta with Marinara and Beef Meatballs",598.8203431,697,41,51,7,13,3,30,14,1,93,1299,0,661,5,469,0,0,2,0,0,composite_sum,2,145540
+$1PRETZEL,"Tangerine Whole, Dressing, Ranch, Bulk, Lite (NEW), Turkey, Pepperoni",113.398,70,3,10,0,3,0.5,7,1,0,13,250,0,0,0,188,386,15,1,,,median_over_topK,5,142082
+CHEESE PIZZA SECONDARY,Cheese Pizza,141.7475,310,21.5,29.5,3,4.5,0,12,6,0,30,430,0.5,450,2.5,209,500,9,1,,,median_over_topK,5,127824
+CHEESEBURGER ELEMENTARY,"Turkey Bacon Cheeseburger, Cheeseburger, Egg and American Cheese on English Muffin",148.486375,293,21,30,4,4,3,11,6,0,38,620,7,197,2,177,0,0,1,,,median_over_topK,5,112668
+CHEESE STIX ELEMENTARY,"Egg and American Cheese on English Muffin, Cream Cheese, Calzone, Cheese",120.135875,255,12,29,3,4,2,8,4,0,20,591,1,190,1,177,0,0,1,,,median_over_topK,5,111739
+PUMPKIN BREAD W/ STRING CHEESE,"Turkey & Cheese on loco bread, String Cheese, Batter, Pumpkin Bread",63,194,6,31,2,3,8.5,7,3,0,20,200,0,198,1,89,,,1,,,median_over_topK,5,108913
+ALC LUNCH ENTREE ELEMENTARY,"Black Beans - salad bar entree, Chickpeas - salad bar entree, Egg and Cheese Burrito - For Lunch",125.786375,168,6,27,3.5,2,0,4.5,0.5,0,9.5,140,0,61,1.5,104,,,1,,,median_over_topK,5,105456
+NACHOS W/ CHEESE ELEMENTARY,"Nachos with Black Beans and Cheese Sauce, Quesadilla, Cheese w/ 6 Inch Tortillas, Nachos with Cheese Sauce",163.86011,439,16,48,3,5,0,20,8,0,10,679,,259,1,792,,,1,,,median_over_topK,5,95578
+BLUEBERRY BREAD W/ STRING CHEESE,"Turkey & Cheese on loco bread, Blueberry Bread, String Cheese",63,218,6,32,2,3,1,9,3,0,20,200,0,198,1,74,,,1,,,median_over_topK,5,93969
+ORANGE CHICKEN ELEMENTARY,"Orange Chicken, Orange Slices, Orange Sauce",117.3495,83,2,20,1,12,10,0,0,0,0,123,0,13,1,257,0,0,1,,,median_over_topK,5,90287
+BREADED CHICKENLESS BITES ELEMENTARY,"Chicken, Bites, Breaded, Wrap, Breaded Chicken, Spicy Breaded Chicken Patty on Bun",102.0582,210,17,15,1,0,0,11,1,0,40,534,1,13,2,194.5,7.5,0,1,,,median_over_topK,5,89010
+MANAGERS CHOICE,"Manager's Vegetable Choice, Tangerine Whole, Pasta, Baked Penne",120.3495,213.5,17,23,2,10,2,7.5,1.5,0,48,494,0,38.5,2,373,772,30,1,,,median_over_topK,5,86640
+PEPPERONI PIZZA SECONDARY,"Pizza, Turkey Pepperoni, Slice, Turkey Pepperoni Pizza, Turkey Pepperoni Lasagna",149.68536,336,21,30,3,6,1,13,5,0,35,569,0,443,2,260,450,7.5,1,,,median_over_topK,5,83170
+CHEESEBURGER SECONDARY,"Turkey Bacon Cheeseburger, Cheeseburger, Egg and American Cheese on English Muffin",148.486375,293,21,30,4,4,3,11,6,0,38,620,7,197,2,177,0,0,1,,,median_over_topK,5,81734
+MANAGER'S CHOICE,"Manager's Vegetable Choice, Fruit Snacks, Welch's Mixed, Lay's RF Kettle Original Chips",42.52425,60,1,15,2,12,0,0,0,0,0,2,0,42,0,188,772,30,0,,,median_over_topK,5,78180
+EGG & CHEESE ON BISCUIT,Egg and American Cheese on English Muffin + Egg and American Cheese on Biscuit,232.24265,522,23,55,3,6,2,23,9,0,18,1202,2,406,3,624,0,0,2,0,0,composite_sum,2,73158
+BLUEBERRY MUFFIN W/ STRING CHEESE,"Egg and American Cheese on English Muffin, Blueberry Muffin Top, String Cheese",59.53395,200,7,24,1,2,1,8,4,0,20,200,0.5,198,1,55,,,1,,,median_over_topK,5,72207
+ALC MILK,"1% White Milk, Fat Free White Milk, Fat Free Chocolate Milk",226.796,110,9,13,0,12,0,0,0,0,5,130,3,310,0,410,155,0,1,,,median_over_topK,5,72153
+SPICY CHICKEN WRAP SECONDARY,"Spicy Chicken Wrap, Wrap, Spicy Chicken on 6 Inch Tortillas, Shredded Chicken Wrap",171,431,23,44,4,2,1,17,3,0,50,668,7,121,3,100,36,0,1,,,median_over_topK,5,71526
+TURKEY SAUSAGE ON BISCUIT,"Turkey Sausage Breakfast Biscuit, Turkey & Cheese on Biscuit, Egg and American Cheese on Biscuit",110.972795,272,12,28,2,3,2,15,6,0,37,488,0.5,160,2,403.5,7,0,1,,,median_over_topK,5,64484
+CHEEZ-IT,"WG Cheez-Its Cheddar, Vending Only, Cheez-Its Crackers, Tangerine Whole",113.398,200,10,21.5,2.5,5.5,0,7,3,0,16.5,280,0,79.5,1.5,153,442,6,1,,,median_over_topK,5,63369
+MEATBALL SUB ELEM,"Asian Meatball Sub, Beef Meatball Sub Sandwich, Beef Meatballs",218.7601706,412,19,35,6,8,1,18,5,1,61,668,7,174,3,421,1961,2,1,,,median_over_topK,5,61225
+PASTA W/ MEATBALLS ELEMENTARY,"Penne Pasta with Marinara and Beef Meatballs, Penne Pasta with Marinara and Beef Meatballs, Pasta, Frozen, Penne",489.4203431,397,25,49,6,9,2,18,8,0,62,668,0,301,3,469,798,46,1,,,median_over_topK,5,60916
+ASIAN VEGGIE SUB-ES,"Asian Veggie Sub, Hard Boiled Eggs, Egg and American Cheese on English Muffin",111.805775,226,11,28,2,3,2,8,2,0,9,591,1,188,1,177,1110.5,1,1,,,median_over_topK,5,59322
+CHICKEN TIKKA MASALA W/ RICE,"Chicken Tikka Masala, Chicken Tikka Masala, Tikka Masala Sauce",99.22325,126,18.5,2,0,0.5,0.5,5.5,1,0,70.5,399.5,0,0,1,282,,,1,,,median_over_topK,5,57536
+FRUIT SNACKS,"Fruit Snacks, Welch's Mixed, Mixed Dried Fruit, Assorted Whole Fruit",127.1947567,87,1,22,2,15,4,0,0,0,0,25,0,14,1,237,126.5,35,1,,,median_over_topK,5,55112
+GRILLED CHEESE SANDWICH ELEMENTARY,"Grilled Cheese Sandwich, Tomato Grilled Cheese Sandwich, Sandwich, Turkey & Cheese on Sub Roll",118,280,18,35,4,6,2.5,10,5,0,30,886,4,380,2,300,0,0,1,,,median_over_topK,5,53815
+CHICKENLESS BITES W/ ORANGE SAUCE W/RICE,Orange Chickenless Bites + Cooked  Brown Rice,337.8828333,447,18,78,4,13,10,10,1,0,0,436,0,45,3,670,0,0,2,0,0,composite_sum,2,52841
+CHEESE QUESADILLA ELEMENTARY,"Chicken and Cheese Quesadilla, Egg & Cheese Breakfast Quesadilla, Quesadilla, Turkey Barbacoa and Cheese",137.6931766,351,21,32,3,3,1,17,8,0,43,635,1,259,2,217,,,1,,,median_over_topK,5,52355
+ALC BREAKFAST ENTREE,"Natural Breakfast Syrup, Black Beans - salad bar entree, Chickpeas - salad bar entree",110.972795,130,4,23,2,3,2,1,0,0,0,140,0,48,1,71,7,,1,,,median_over_topK,5,45525
+ALC VEGETABLE/FRUIT,"Assorted Whole Fruit, Chicken & Vegetable Dumplings, Fruit Snacks, Welch's Mixed",127.1947567,240,16,31,4,3,0.5,5,0,0,0,363,0,36,3,281,160,37,1,,,median_over_topK,5,43693
+STRAWBERRY PARFAIT,"Strawberry Parfait, Strawberry Parfait Power Pack, Strawberry Parfait Power Pack w/Egg",302.260155,250,7,55,4,36,15,2,0,0,3,63,3,308,1,449,978,31,1,,,median_over_topK,5,41992
+CHICKENLESS BITE W/ MAPLEL WAFFLE SECONDARY,"Sweet Thai Chili Chickenless Bites, BBQ Chickenless Bites, Korean BBQ Chickenless Bites",117.3495,205,12,26,3,8,5,8,1,0,0,524,0,42,2,561,0,0,1,,,median_over_topK,5,41683
+ORANGE CHICKEN SECONDARY,"Orange Chicken, Orange Slices, Orange Sauce",117.3495,83,2,20,1,12,10,0,0,0,0,123,0,13,1,257,0,0,1,,,median_over_topK,5,36447
+BEAN & CHEESE PUPUSA-ES,Black Bean and Corn Salad + Bean and Cheese Pupusa,262.15792,390,18,55,8,2,0,11,3,0,15,550,0,274,2,419,0,0,2,0,0,composite_sum,2,36158
+ASIAN BEEF MEATBALL SUB-ES,"Asian Meatball Sub, Beef Meatball Sub Sandwich, Asian Veggie Sub",218.7601706,412,19,35,6,8,4,16,4,1,48,802,7,174,3,421,1961,2,1,,,median_over_topK,5,36083
+NACHOS W/ TURKEY BARBACOA & CHEESE SAUCE ES,Nachos with Turkey Barbacoa and Cheese Sauce + Nachos with Black Beans and Cheese Sauce,342.2581562,874,33,98,7,8,0,38,11,0,44,1456,0,396,2,921,0,0,2,0,0,composite_sum,2,35887
+MANDARIN PARFAIT,"Mandarin Orange Parfait, Mandarin  Parfait Power Pack, Peach Parfait",334.01349,258,7,56,3,36,16,2,0,0,3,63,3,308,2,478,1696,68,1,,,median_over_topK,5,33453
+PASTA W/MEATBALLS SECODNARY,"Pasta, Baked Penne + Penne Pasta with Marinara and Beef Meatballs",1490.321186,1123,66,108,15,32,4,48,22,1,124,1793,0,1325,8,1762,0,0,2,0,0,composite_sum,2,32349
+SIMPLY CHEX,"Cinnamon Chex Cereal, Blueberry Chex Cereal, Strawberry Chex Mix",56,230,3,46,2,12,12,5,1,0,0,320,2,100,14,0,500,6,1,,,median_over_topK,3,28761
+NACHOS W/CHEESE-SECON DARY,Make Your Own Nachos + Egg and American Cheese on English Muffin,243.914445,524,26,52,3,10,0,24,9,0,19,1448,1,580,1,889,0,0,2,0,0,composite_sum,2,28275
+ALFREDO LASAGNA-ES,"Alfredo & Basil Lasagna, Turkey Pepperoni Lasagna, Broccoli Alfredo Penne - ALC",199.507414,339.5,22.5,35,2.5,7,0.5,9.5,4,0,40,501,0,328,1.5,265.5,402,6,1,,,median_over_topK,5,25550
+FISH TACOS ON TORTILLA-ES,"Bean Street Tacos on Flour Tortillas, Soft Beef Taco on Flour Tortilla, Turkey Barbacoa Tacos on Flour Tortillas",180.4443055,330,19,43,5,2,2,12,4,0,45,630,1,61,3,212,,,1,,,median_over_topK,5,25088
+TURKEY & CHEESE ON BISCUIT,Turkey Barbacoa + Egg and American Cheese on Biscuit,204.351395,396,24,33,2,4,2,19,8,0,59,1091,1,218,3,460,0,0,2,0,0,composite_sum,2,25083
+NACHOS W/TACO MEAT&CHEESE-SEC ONDARY,"Make Your Own Nachos + Beef, Taco Meat, Pre-Cooked + Egg and American Cheese on English Muffin",333.78236,637,39,57,5,12,0,29,11,0,53,1744,1,626,3,1711,0,0,3,0,0,composite_sum,3,24871
+CHICKEN DUMPLING SECONDARY,"Chicken Alfredo Pasta, Korean Chicken Drumstick, Chicken, Wings, Pre-Cooked",141.7475,240,24,16,1,5,0,8,1,0,83,377,0,35,2,305,156,1,1,,,median_over_topK,5,22608
+SANDWICH (SEC),"Crispy Chicken Sandwich, Peanut Butter and Jelly Sandwich, IW, Turkey Bacon, Egg & Cheese Bagel Sandwich",113.52425,280,16,32,4,4,3,10,3,0,28,610,7,181,1,226,0,0,1,,,median_over_topK,5,22546
+SALAD BAR ELEMENTARY,"Black Beans - salad bar entree, Chickpeas - salad bar entree, Lettuce, Green Salad Mix",130,80,4,14,4,1,0,1,0,0,0,140,0,27,1,97,344,2,1,,,median_over_topK,5,22506
+ORANGE CHICKENLESS BITE SECONDARY,"Orange Chickenless Bites, Mandarin Orange Parfait, Orange Slices",117.3495,83,2,20,3,13.5,10,0,0,0,0,63,0,40,1,257,252,13,1,,,median_over_topK,5,22425
+YOGURT POWER PACK SECONDARY,"Peach Yogurt Power Pack, Cherry Vanilla Yogurt Power Pack, Strawberry & Banana Yogurt Power Pack",203,320,14,51,3,16,10,7,4,0,25,392.5,4,499.5,2,300.5,0,0,1,,,median_over_topK,5,21252
+CHICKEN & CHEESE QUESADILLA SECONDARY,Chicken Alfredo Pasta + Chicken and Cheese Quesadilla,762.3960616,659,45,77,7,8,1,20,7,0,91,1012,0,438,4,610,0,0,2,0,0,composite_sum,2,20833
+BBQ CHICKEN SANDWICH ELEMENTARY,"BBQ Chicken Sandwich, Crispy Chicken Sandwich, Chicken Philly Sandwich",151.3689,331,24,41,4,11,3,11,2,0,54,610,7,122,2,360,18,321,1,,,median_over_topK,5,19283
+TRIPLE BERRY PARFAIT,"Parfait, Triple Berry, Triple Berry Parfait Power Pack, Mandarin Orange Parfait",218.064035,220,6,46,4,26,15,2,0,0,3,53,3,296,1,323,1696,22,1,,,median_over_topK,5,18500
+FIELD TRIP LUNCH ELEMENTARY,"Egg and Cheese Burrito - For Lunch, Frozen Berry, Triple Berry Blend, Red Pepper Strips",125.786375,216,6,31,3,7,7.5,2,0,0,3,53,1,138,1,137,994,13,1,,,median_over_topK,5,17972
+BISCUIT & JELLY,"Turkey Sausage Breakfast Biscuit + Peanut Butter and Jelly Sandwich, IW",184.681495,597,21,60,6,17,14,33,10,0,37,768,0,146,3,360,7,0,2,0,0,composite_sum,2,17454
+TURKEY BARBACOA AREPAS W/ CHEESE ES,"Nachos with Turkey Barbacoa and Cheese Sauce, Quesadilla, Turkey Barbacoa and Cheese, Turkey Barbacoa & Cheese Taco",164.7669375,322,24,32,3,4,1,11,3,0,39,870,4,190,2,315,,,1,,,median_over_topK,5,16774
+STRING CHEESE,"String Cheese, Cheese, String, Mozzarella, Low-Fat IW, Egg and American Cheese on English Muffin",111.805775,216,12,24,1,2,0,6,2,0,20,441,1,198,1,177,0,0,1,,,median_over_topK,5,16609
+SALAD BAR SECONDARY,"Black Beans - salad bar entree, Chickpeas - salad bar entree, Lettuce, Green Salad Mix",130,80,4,14,4,1,0,1,0,0,0,140,0,27,1,97,344,2,1,,,median_over_topK,5,16411
+CHEESE QUESADILLA SECONDARY,"Chicken and Cheese Quesadilla, Egg & Cheese Breakfast Quesadilla, Quesadilla, Turkey Barbacoa and Cheese",137.6931766,351,21,32,3,3,1,17,8,0,43,635,1,259,2,217,,,1,,,median_over_topK,5,15777
+FISH W/ ROLL-SECONDARY,"Fish Filet Potato Encrusted, Sub Roll, Whole Wheat Dinner Roll",102.0582,202,14,27,4,2,2,10,2,0,45,293,1,48,1,374,0,0,1,,,median_over_topK,5,14577
+MINI CHEESE CALZONE SECONDARY,"Calzone, Cheese, Egg and American Cheese on English Muffin, Cream Cheese",120.135875,255,12,29,3,4,2,8,4,0,20,591,1,190,1,177,0,0,1,,,median_over_topK,5,14483
+CHICKEN TENDER ON BISCUIT,"Egg and American Cheese on Biscuit, Turkey & Cheese on Biscuit, Chicken & Biscuit Sandwich",113.3495,285,11,30,2,3,2,12,6,0,20,488,0,123,2,360,12.5,,1,,,median_over_topK,5,14187
+CHICKEN ON BUN SECONDARY,"Spicy Breaded Chicken Patty on Bun, Wrap, Spicy Chicken on 6 Inch Tortillas, Chicken Masala Drumstick",141.7475,239,22,8,1,2,1,11,1,0,83,350,0,49,1,250.5,46,0,1,,,median_over_topK,5,14173
+HOT TURKEY AND CHEESE SANDWICH ELEMENTARY,"Hot Turkey & Cheese + Sandwich, Turkey & Cheese on Sub Roll",243.02425,485,40,63,8,8,3,13,5,0,58,1623,8,410,3,627,0,0,2,0,0,composite_sum,2,13782
+GRILLED CHEESE SANDWICH SECONDARY,"Grilled Cheese Sandwich, Tomato Grilled Cheese Sandwich, Sandwich, Turkey & Cheese on Sub Roll",118,280,18,35,4,6,2.5,10,5,0,30,886,4,380,2,300,0,0,1,,,median_over_topK,5,13442
+VEGGIE DUMPLINGS SECONDARY,"Asian Veggie Sub, Hard Boiled Eggs, Egg and American Cheese on English Muffin",111.805775,226,11,28,2,3,2,8,2,0,9,591,1,188,1,177,1110.5,1,1,,,median_over_topK,5,12532
+TURKEY BARBACOA QUESADILLA SECONDARY,"Quesadilla, Turkey Barbacoa and Cheese, Turkey Barbacoa, Turkey Barbacoa Tacos on Flour Tortillas",166.9786013,322,23,32,3,2,0.5,11,4,0,63,855,0,117,1,122,,,1,,,median_over_topK,5,12498
+BEAN & CHEESE PUPUSA SECONDARY,Black Bean and Corn Salad + Bean and Cheese Pupusa,262.15792,390,18,55,8,2,0,11,3,0,15,550,0,274,2,419,0,0,2,0,0,composite_sum,2,12395
+ALFREDO LASAGNA-SECONDA RY,"Alfredo & Basil Lasagna, Turkey Pepperoni Lasagna, Broccoli Alfredo Penne - ALC",199.507414,339.5,22.5,35,2.5,7,0.5,9.5,4,0,40,501,0,328,1.5,265.5,402,6,1,,,median_over_topK,5,12333
+VEGAN BURGER SECONDARY,"Vegan Burger, BBQ Vegan Burger, Hamburger",134.786375,310,20,30,4,4,3,13,5,0,45,668,7,180,3,170,0,0,1,,,median_over_topK,5,11092
+ASIAN BEEF MEATBALL SUB-SECONDARY,"Asian Meatball Sub, Beef Meatball Sub Sandwich, Asian Veggie Sub",218.7601706,412,19,35,6,8,4,16,4,1,48,802,7,174,3,421,1961,2,1,,,median_over_topK,5,10994
+NACHOS W/TURKEY BARBACOA&CHEES E SECONDARY,Make Your Own Nachos + Turkey Barbacoa + Cheesy Fiesta Nachos,425.0367973,812,42,76,6,13,0,38,13,0,65,2025,0,593,3,1215,39,3,3,0,0,composite_sum,3,10770
+CHANA MASALA W/ RICE,"Chana Masala, Chicken Tikka Masala, Fried Rice",132.831749,164.5,11,31,2.5,1,0,2,0,0,0.5,206.5,1,16,1,175,,,1,,,median_over_topK,5,10341
+CHICKEN PHILLY SUB-ES,"Chicken Tenders Sub, Chicken Philly Sandwich, Korean Chicken Drumstick",175.7669,317,24,31,2,5,3,11,1,0,60,609,0,35,2,297,156,322,1,,,median_over_topK,5,10274
+FISH FILLET SANDWISH-SECON DARY,"Fish Filet Potato Encrusted, Fish Tacos, Fish Tacos",162.0582,350,18,40,5,2,2,13,4,0,45,480,1,48,2,440,0,6,1,,,median_over_topK,5,10117
+$0.50 Juice,"Apple Juice, Orange Tangerine Juice, Berry Juice",119.918385,60,0,15,0,13,0,0,0,0,0,10,0,14.5,0,200,0,36,1,,,median_over_topK,3,10113
+ALC $1 YOGURT OZ,"Assorted  4 oz Yogurt, Peach Yogurt Power Pack, Cherry Vanilla Yogurt Power Pack",203,320,14,51,3,16,10,7,4,0,25,392.5,4,499.5,2,300.5,0,0,1,,,median_over_topK,5,9908
+VEGAN BURGER ELEMENTARY,"Vegan Burger, BBQ Vegan Burger, Hamburger",134.786375,310,20,30,4,4,3,13,5,0,45,668,7,180,3,170,0,0,1,,,median_over_topK,5,9671
+MEATBALL SUB SECONDARY,"Asian Meatball Sub, Beef Meatball Sub Sandwich, Beef Meatballs",218.7601706,412,19,35,6,8,1,18,5,1,61,668,7,174,3,421,1961,2,1,,,median_over_topK,5,9471
+CHICKEN TIKKA MASALA SECONDARY,"Chicken Tikka Masala, Chicken Tikka Masala, Tikka Masala Sauce",99.22325,126,18.5,2,0,0.5,0.5,5.5,1,0,70.5,399.5,0,0,1,282,,,1,,,median_over_topK,5,9160
+BBQ CHICKEN SANDWICH SECONDARY,"BBQ Chicken Sandwich, Crispy Chicken Sandwich, Chicken Philly Sandwich",151.3689,331,24,41,4,11,3,11,2,0,54,610,7,122,2,360,18,321,1,,,median_over_topK,5,8579
+TACO BEEF AREPAS-ES,"Arepa w/Taco Beef, Taco Beef, Soft Beef Taco on Flour Tortilla",180.4443055,216,13,10,3,4,0,6,2,0,34,360,0,61,2,822,2295,85,1,,,median_over_topK,5,7651
+FISH TACO ON TORTILLA-SECONDA RY,"Soft Beef Taco on Flour Tortilla, Soft Bean Taco on Flour Tortilla, Tacos, Taco Meat, Flour Tortilla",180.4443055,253,19,35,6,4,0.5,12,4,0,34,510,0,82,3,835,1914,10,1,,,median_over_topK,5,7440
+CEREAL/ NO MILK,"Cinnamon Chex Cereal, Blueberry Chex Cereal",56,235,3,46,2,12,12,5,1,0,0,335,2,100,15,0,500,6,1,,,median_over_topK,2,7297
+NACHOS W/TACO MEAT/CHEESE SAUCE ELEMENTARY,Make Your Own Nachos + Nachos with Taco Meat and Cheese Sauce,287.3221825,738,30,73,5,13,0,36,13,0,32,1536,0,601,1,1579,0,0,2,0,0,composite_sum,2,6953
+CHICKEN DUMPLINGS ELEMENTARY,"Chicken & Vegetable Dumplings, Chicken & Vegetable Dumplings, Chicken Alfredo Pasta",136.0776,242,19,31,2,3,0.5,8,1,0,48,550,0,35,2,298,,0,1,,,median_over_topK,5,6947
+HOT TURKEY AND CHEESE SANDWICH SECONDARY,"Hot Turkey & Cheese + Sandwich, Turkey & Cheese on Sub Roll",243.02425,485,40,63,8,8,3,13,5,0,58,1623,8,410,3,627,0,0,2,0,0,composite_sum,2,6535
+ASIAN VEGGIE SUB-SECONDARY,"Asian Veggie Sub, Hard Boiled Eggs, Egg and American Cheese on English Muffin",111.805775,226,11,28,2,3,2,8,2,0,9,591,1,188,1,177,1110.5,1,1,,,median_over_topK,5,6193
+BBQ CHICKEN DRUMSTICK ELEMENTARY,"BBQ Chicken Drumstick, Korean Chicken Drumstick, Chicken, Drumstick, Sweet Thai Chili",150.249149,282,24,10,0,8,7,16,4,0,118,1035,0,16,2,313,,,1,,,median_over_topK,5,6013
+PARFAIT POWER PACK SECONDARY,"Strawberry Parfait Power Pack, Triple Berry Parfait Power Pack, Peach Parfait, Power Pack",324.260155,490,14,78,5,42,32,15,5,0,42,350,3,512,2,457,260,31,1,,,median_over_topK,5,5947
+NACHOS W/ BLACK BEANS AND CHEESE SECONDARY,Nachos with Black Beans and Cheese Sauce + Egg and American Cheese on English Muffin,287.08533,655,26,78,6,6,0,26,7,0,14,1192,1,398,2,633,0,0,2,0,0,composite_sum,2,5800
+PINEAPPLE PARFAIT,"Pineapple Parfait, Mandarin Orange Parfait, Peach Parfait",314.8775775,258,6,56,3,36,15,2,0,0,3,60,3,308,1,441,893,42.5,1,,,median_over_topK,5,5303
+TURKEY BARBACOA AREPAS W/ CHEESE SECONDARY,"Nachos with Turkey Barbacoa and Cheese Sauce, Quesadilla, Turkey Barbacoa and Cheese, Turkey Barbacoa & Cheese Taco",164.7669375,322,24,32,3,4,1,11,3,0,39,870,4,190,2,315,,,1,,,median_over_topK,5,4766
+NACHO W/ BLACK BEANS&CHEESE SAUCE ELEMENTARY,Black Beans + Nachos with Black Beans and Cheese Sauce,303.279555,549,19,70,10,4,0,21,5,0,5,1181,0,210,1,456,0,0,2,0,0,composite_sum,2,4238
+PARFAIT,"Mandarin Orange Parfait, Blueberry Parfait, Strawberry Parfait",218.064035,220,6,46,4,26,15,2,0,0,3,53,3,296,1,323,893,24,1,,,median_over_topK,5,4039
+FIELD TRIP LUNCH SECONDARY,"Egg and Cheese Burrito - For Lunch, Frozen Berry, Triple Berry Blend, Red Pepper Strips",125.786375,216,6,31,3,7,7.5,2,0,0,3,53,1,138,1,137,994,13,1,,,median_over_topK,5,3378
+PARFAIT POWER PACK ELEMENTARY,"Strawberry Parfait Power Pack, Triple Berry Parfait Power Pack, Peach Parfait, Power Pack",324.260155,490,14,78,5,42,32,15,5,0,42,350,3,512,2,457,260,31,1,,,median_over_topK,5,3287
+TURKEY BARBACOA QUESADILLA ES,"Quesadilla, Turkey Barbacoa and Cheese, Turkey Barbacoa, Turkey Barbacoa Tacos on Flour Tortillas",166.9786013,322,23,32,3,2,0.5,11,4,0,63,855,0,117,1,122,,,1,,,median_over_topK,5,3141
+VEGGIE DUMPLINGS ELEMENTARY,"Asian Veggie Sub, Hard Boiled Eggs, Egg and American Cheese on English Muffin",111.805775,226,11,28,2,3,2,8,2,0,9,591,1,188,1,177,1110.5,1,1,,,median_over_topK,5,3057
+NUTRIGRAIN BARS -,"Tangerine Whole, Dressing, Ranch, Bulk, Lite (NEW), Turkey, Pepperoni",113.398,70,3,10,0,3,0.5,7,1,0,13,250,0,0,0,188,386,15,1,,,median_over_topK,5,2888
+CHICKEN QUESADILLA ELEMENTARY,"Chicken Quesadilla, Quesadilla, Chicken & Cheese (Shred Chicken) 6 in Tortilla, Chicken and Cheese Quesadilla",135.6931766,316,21,31,3,3,1,12,4,0,53,565,0,225,2,207,,,1,,,median_over_topK,5,2839
+BBQ CHICKEN DRUMSTICK SECONDARY,"BBQ Chicken Drumstick, Korean Chicken Drumstick, Chicken, Drumstick, Sweet Thai Chili",150.249149,282,24,10,0,8,7,16,4,0,118,1035,0,16,2,313,,,1,,,median_over_topK,5,2717
+CHICKEN PHILLY SUB-SECONDARY,"Chicken Tenders Sub, Chicken Philly Sandwich, Korean Chicken Drumstick",175.7669,317,24,31,2,5,3,11,1,0,60,609,0,35,2,297,156,322,1,,,median_over_topK,5,2528
+IZZE DRINK - $1.50,"IZZE, Strawberry, IZZE, Blackberry, IZZE, Clementine",238.1358,70,0,16,0,14,0,0,0,0,0,10,0,360,2,0,0,0,1,,,median_over_topK,5,2117
+WAFFLES BREAKFAST,"Mini Maple Waffles, Natural Breakfast Syrup, Turkey Sausage Breakfast Biscuit",110.972795,237,12,32,4,7,4,5,1,0,0,464,0,75,2,150,503.5,,1,,,median_over_topK,5,1877
+CHANA MASALA SECONDARY,"Chana Masala, Chicken Tikka Masala, Tikka Masala Sauce",123.320325,101.5,18.5,5,0,1,0,2.5,0,0,50.5,361,0,16,1,202,,,1,,,median_over_topK,5,1411
+PASTA W/MEAT SAUCE SECONDARY,"Pasta, Baked Penne + Pasta with Meat Sauce",1691.091072,917,48,115,14,25,3,31,14,0,61,1156,0,1049,7,1483,0,0,2,0,0,composite_sum,2,1085
+PRESCHOOL LUNCH,"Egg and Cheese Burrito - For Lunch, Tangerine Whole, Vanilla Sugar Cookie",120.3495,185,15,15,2,6,3.5,7,1,0,21,434,0,35,1,188,772,30,1,,,median_over_topK,5,1034
+SPECIAL DIET MEAL ELEMENTARY,"Diet Coke 24/12oz, Cereal, Cinnamon Toasters, Malt-O-Meal, IW (Sub), Tomato Basil Lasagna",153.370795,306.5,19,29,3,3,2,11.5,5,0,39,476,3.5,432,2,176,221,3,1,,,median_over_topK,5,954
+MGR CHOICE SECONDARY,"Manager's Vegetable Choice, Tangerine Whole, Pasta, Baked Penne",120.3495,213.5,17,23,2,10,2,7.5,1.5,0,48,494,0,38.5,2,373,772,30,1,,,median_over_topK,5,847
+FASTING BREAKFAST,"Natural Breakfast Syrup, Turkey Sausage Breakfast Biscuit, Egg & Cheese Breakfast Quesadilla",110.972795,297,12,28,2,3,2,10,5,0,21,464,0,120,2,206,224.5,6,1,,,median_over_topK,5,772
+LACTOSE FREE MILK,"Lactose Free, White Milk, Milk, Lactose Free,  Fat Free, Shelf-Stable, Milk, Lactose Free,  Fat Free, Shelf-Stable (substitute)",226.796,90,9,13,0,12,0,0,0,0,5,130,3,310,0,400,155,0,1,,,median_over_topK,5,690
+BURKE ALC MEAL,"Cereal, Cinnamon Toasters, Malt-O-Meal, IW (Sub), Broccoli Alfredo Penne - ALC, Cheese Pizza - ALC",56.699,60,10,24.5,2.5,8,0,0,0,0,14,4,0,237,1,182,607,18,1,,,median_over_topK,5,594
+PREK EVENT STUDENT LUNCH,"Egg and Cheese Burrito - For Lunch, Tangerine Whole, Vanilla Sugar Cookie",120.3495,185,15,15,2,6,3.5,7,1,0,21,434,0,35,1,188,772,30,1,,,median_over_topK,5,580
+FASTING LUNCH-ELEMENTAR Y,"Egg and Cheese Burrito - For Lunch, Tangerine Whole, Vanilla Sugar Cookie",120.3495,185,15,15,2,6,3.5,7,1,0,21,434,0,35,1,188,772,30,1,,,median_over_topK,5,523
+FASTING LUNCH - SECONDARY,"Egg and Cheese Burrito - For Lunch, Tangerine Whole, Vanilla Sugar Cookie",120.3495,185,15,15,2,6,3.5,7,1,0,21,434,0,35,1,188,772,30,1,,,median_over_topK,5,506
+BBQ BEEF RIB SECONDARY,"Penne Pasta with Marinara and Beef Meatballs, Beef, Taco Meat, Pre-Cooked, Beef Meatballs",89.867915,151,13,5,2,2,0,10,4,0.5,34,332,0,46,1,822,2676,160,1,,,median_over_topK,5,435
+ALC HARD BOILED EGG,"Egg, Hard Boiled, Bulk pouch, Hard Boiled Eggs, Egg and American Cheese on English Muffin",106.135875,216,10,24,1,2,1,7,2,0,9,521,1,181,1,162,260,0,1,,,median_over_topK,5,417
+SPECIAL DIET MEAL SECONDARY,"Diet Coke 24/12oz, Cereal, Cinnamon Toasters, Malt-O-Meal, IW (Sub), Tomato Basil Lasagna",153.370795,306.5,19,29,3,3,2,11.5,5,0,39,476,3.5,432,2,176,221,3,1,,,median_over_topK,5,399
+"CHICKEN TENDERS 1,273 SECONDARY","Chicken Tenders Sub, Chicken Tenders, Buffalo Chicken Dip",141.7475,239,23,8,2.5,3,0,12,1,0,83,389,3.5,51,1,190,55,0,1,,,median_over_topK,5,368
+"CHICKEN TENDERS 1,121 SECONDARY","Chicken Tenders Sub, Chicken Tenders, Buffalo Chicken Dip",141.7475,239,23,8,2.5,3,0,12,1,0,83,389,3.5,51,1,190,55,0,1,,,median_over_topK,5,321
+"CHICKEN TENDERS 1,092 SECONDARY","Chicken Tenders Sub, Chicken Tenders, Buffalo Chicken Dip",141.7475,239,23,8,2.5,3,0,12,1,0,83,389,3.5,51,1,190,55,0,1,,,median_over_topK,5,314
+"CHICKEN TENDERS 1,019 SECONDARY","Chicken Tenders Sub, Chicken Tenders, Buffalo Chicken Dip",141.7475,239,23,8,2.5,3,0,12,1,0,83,389,3.5,51,1,190,55,0,1,,,median_over_topK,5,312
+PREK FAMILY EVENT STUDENT BREAKFAST,"Natural Breakfast Syrup, Turkey Sausage Breakfast Biscuit, Egg & Cheese Breakfast Quesadilla",110.972795,297,12,28,2,3,2,10,5,0,21,464,0,120,2,206,224.5,6,1,,,median_over_topK,5,307
+"CHICKEN TENDERS 1,043 SECONDARY","Chicken Tenders Sub, Chicken Tenders, Buffalo Chicken Dip",141.7475,239,23,8,2.5,3,0,12,1,0,83,389,3.5,51,1,190,55,0,1,,,median_over_topK,5,288
+"CHICKEN TENDERS 1,083 SECONDARY","Chicken Tenders Sub, Chicken Tenders, Buffalo Chicken Dip",141.7475,239,23,8,2.5,3,0,12,1,0,83,389,3.5,51,1,190,55,0,1,,,median_over_topK,5,287
+"CHICKEN TENDERS 1,086 SECONDARY","Chicken Tenders Sub, Chicken Tenders, Buffalo Chicken Dip",141.7475,239,23,8,2.5,3,0,12,1,0,83,389,3.5,51,1,190,55,0,1,,,median_over_topK,5,272
+THANKSGIVING LUNCH ELEMENTARY,"Egg and Cheese Burrito - For Lunch, Tangerine Whole, Vanilla Sugar Cookie",120.3495,185,15,15,2,6,3.5,7,1,0,21,434,0,35,1,188,772,30,1,,,median_over_topK,5,223
+PREK FAMILY EVENT ADULT BREAKFAST CHARGED FROM FSO,"Natural Breakfast Syrup, Turkey Sausage Breakfast Biscuit, Egg & Cheese Breakfast Quesadilla",110.972795,297,12,28,2,3,2,10,5,0,21,464,0,120,2,206,224.5,6,1,,,median_over_topK,5,156
+CENTER LUNCH - PUREED,"Egg and Cheese Burrito - For Lunch, Tangerine Whole, Vanilla Sugar Cookie",120.3495,185,15,15,2,6,3.5,7,1,0,21,434,0,35,1,188,772,30,1,,,median_over_topK,5,122
+PREK FAMILY EVENT ADULT LUNCH,"Egg and Cheese Burrito - For Lunch, Tangerine Whole, Vanilla Sugar Cookie",120.3495,185,15,15,2,6,3.5,7,1,0,21,434,0,35,1,188,772,30,1,,,median_over_topK,5,108
+PREK FAMILY EVENT ALC,"Broccoli Alfredo Penne - ALC, Cheese Pizza - ALC, Tangerine Whole",19,60,3,10,0,8,3.5,2,1,0,13,165,0,0,0,188,772,30,1,,,median_over_topK,5,76
+THANKSGIVING LUNCH SECONDARY,"Egg and Cheese Burrito - For Lunch, Tangerine Whole, Vanilla Sugar Cookie",120.3495,185,15,15,2,6,3.5,7,1,0,21,434,0,35,1,188,772,30,1,,,median_over_topK,5,56
+CENTER BREAKFAST PUREED,"Natural Breakfast Syrup, Turkey Sausage Breakfast Biscuit, Egg & Cheese Breakfast Quesadilla",110.972795,297,12,28,2,3,2,10,5,0,21,464,0,120,2,206,224.5,6,1,,,median_over_topK,5,53
+No Charge A La Carte Promotion,"Tangerine Whole, Dressing, Ranch, Bulk, Lite (NEW), Turkey, Pepperoni",113.398,70,3,10,0,3,0.5,7,1,0,13,250,0,0,0,188,386,15,1,,,median_over_topK,5,41
+KINDERGARTEN PIN USE TRAINING,"DO NOT USE - Peppers, green, pre-sliced, Chicken, Diced (DO NOT USE), DO NOT USE Peppers, red, pre-sliced",62.3689,35,2,3,1,1,0,2,0,0,0,130,0,6,0,109,231,50,1,,,median_over_topK,5,36
+THANKSGIVING ADULT LUNCH SECONDARY,"Egg and Cheese Burrito - For Lunch, Tangerine Whole, Vanilla Sugar Cookie",120.3495,185,15,15,2,6,3.5,7,1,0,21,434,0,35,1,188,772,30,1,,,median_over_topK,5,9
+HAMBURGER SECONDARY,"Hamburger, Bread, Hamburger Bun, Tangerine Whole",120.3495,185,17,27,4,8,3,8,2,0,45,410,0,110,1,188,0,0,1,,,median_over_topK,5,7
+THANKSGIVING ADULT LUNCH ELEMENTARY,"Egg and Cheese Burrito - For Lunch, Tangerine Whole, Vanilla Sugar Cookie",120.3495,185,15,15,2,6,3.5,7,1,0,21,434,0,35,1,188,772,30,1,,,median_over_topK,5,4
+PBJ MEAL SECONDARY,"Cereal, Cinnamon Toasters, Malt-O-Meal, IW (Sub), Tangerine Whole, Pasta, Baked Penne",120.3495,185,17,23,2,8,2,7,1,0,48,434,0,38.5,2,373,772,30,1,,,median_over_topK,5,1
+ELEMENTARY,"Tangerine Whole, Dressing, Ranch, Bulk, Lite (NEW), Turkey, Pepperoni",113.398,70,3,10,0,3,0.5,7,1,0,13,250,0,0,0,188,386,15,1,,,median_over_topK,5,0
+CHEESE STIX -1 ELEMENTARY,"Cheese Sticks, Baked (Warehouse - effective 9/1), Cream Cheese, Calzone, Cheese",120.135875,261,16,29,3,4,2,9,4,0,30,640,0,261,2,147,0,0,1,,,median_over_topK,5,0
+"$1.25 CHIPS 1,011","Tortilla Chips, RF Kettle Chips Jalapeno & Cheddar Chips, Doritos Wild White Nacho Flavored Tortilla Chips",39.12231,134,2,19.5,1.5,0,0,5.5,1,0,0,122,0,40,0,54.5,,,0,,,median_over_topK,5,0
