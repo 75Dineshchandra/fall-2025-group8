@@ -13,16 +13,16 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 import Components.env as env
 
-# Load environment data into env module (defaults look in src/data)
+# Load environment data into env module (defaults look in data/)
 env.load_env_data()
 
 # Main execution
 if __name__ == "__main__":
-    # Use the OPTIMAL model (lambda = 0.08 from  training)
-    optimal_model_path = "src/tests/results/model_lambda_0.08.joblib"
+    # Use the OPTIMAL model (lambda = 0.30 from training)
+    optimal_model_path = "data/results/model_lambda_0.30.joblib"
     
     recommendations = env.recommend_with_trained_model(
-        target_date='2025-10-17',
+        target_date='2025-11-25',
         school="HERNDON_HIGH",
         meal_time="lunch",
         model_path=optimal_model_path,

@@ -13,7 +13,7 @@ This approach stabilizes early fluctuations and highlights long-term learning tr
 Regret is computed at each time step \(t\) as the difference between the oracle reward (the maximum available reward among all feasible actions) and the actual reward received by the selected action:
 
 \[
-\text{regret}_t = \text{oracle}_t - r_t
+\text{regret}_t = \text{oracle}_t - r_t  
 \]
 
 where \(\text{oracle}_t = \max_{a \in \mathcal{A}_t} r_{t,a}\) represents the optimal reward achievable at time \(t\), and \(r_t\) is the reward obtained from the action selected by the bandit algorithm. To normalize regret across different reward scales, we also compute percentage regret:
@@ -22,7 +22,7 @@ where \(\text{oracle}_t = \max_{a \in \mathcal{A}_t} r_{t,a}\) represents the op
 \text{regret\%}_t = \frac{\text{regret}_t}{\text{oracle}_t} \times 100\%
 \]
 
-![Figure 3: Continuous Regret Calculation](src/tests/results/figure3_continuous_regret_calculation.png)
+![Figure 3: Continuous Regret Calculation](data/results/figure3_continuous_regret_calculation.png)
 
 **Figure 3: Continuous Regret Calculation.** Rolling average regret percentage over time for LinUCB with \(\lambda = 0.3\). The regret trajectory demonstrates a clear learning pattern: initial regret values exceed 70%, reflecting the model's uncertainty during early exploration, but decrease steadily to approximately 27.6% by the end of training. This reduction indicates that the model successfully learns context-dependent reward patterns and improves decision-making quality through sequential feedback.
 
@@ -55,7 +55,7 @@ The most substantial improvement in percentage regret occurs between the 10% and
 
 We compare the LinUCB contextual bandit against two baseline recommendation strategies: (1) a **Random** baseline that selects uniformly at random from available items at each time step, and (2) a **Health-First** rule-based policy that selects the item with the highest health score (NRF9.3) at each decision point, independent of contextual or historical reward signals. All three models are evaluated under identical sequential simulation conditions with \(\lambda = 0.3\), ensuring fair comparison.
 
-![Figure 4: Model-Wise Performance Comparison](src/tests/results/model_comparison_lambda_0.3_rolling4_raw_simplified.png)
+![Figure 4: Model-Wise Performance Comparison](data/results/model_comparison_lambda_0.3_rolling4_raw_simplified.png)
 
 **Figure 4: Model-Wise Performance Comparison.** Four-panel comparison showing rolling averages of reward, regret percentage, raw sales, and raw health scores over the full 21,656 time steps. The visualizations employ expanding-window rolling averages to smooth temporal fluctuations and highlight long-term performance trends.
 
