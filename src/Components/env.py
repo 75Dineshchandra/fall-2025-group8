@@ -25,7 +25,7 @@ index_to_item = None
 
 # ===== FILE PATHS =====
 
-data_dir = Path("src/data")
+data_dir = Path("data")
 input_csv_sales = data_dir / "data_healthscore_mapped.csv"  # Raw sales data from FCPS
 
 

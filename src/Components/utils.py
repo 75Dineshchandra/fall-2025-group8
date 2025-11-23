@@ -209,7 +209,7 @@ def calculate_health_scores_from_merged(merged_file: Path, output_file: Path = N
 
 def main():
     """Main function for standalone health score calculation"""
-    data_dir = Path("src/data")
+    data_dir = Path("data")
     sales_file = data_dir / "sales.csv"
     nutrition_file = data_dir / "data_sales_nutrition.csv"
     output_file = data_dir / "data_healthscore_mapped.csv"

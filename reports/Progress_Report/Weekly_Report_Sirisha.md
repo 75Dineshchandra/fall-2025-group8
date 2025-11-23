@@ -1060,9 +1060,9 @@ import pandas as pd
 import numpy as np
 
 # Load performance CSV files
-linucb = pd.read_csv('src/tests/results/linucb_performance_lambda_0.3_rolling4_simplified.csv')
-health = pd.read_csv('src/tests/results/health_first_performance_lambda_0.3_rolling4_simplified.csv')
-random = pd.read_csv('src/tests/results/random_performance_lambda_0.3_rolling4_simplified.csv')
+linucb = pd.read_csv('data/results/linucb_performance_lambda_0.3_rolling4_simplified.csv')
+health = pd.read_csv('data/results/health_first_performance_lambda_0.3_rolling4_simplified.csv')
+random = pd.read_csv('data/results/random_performance_lambda_0.3_rolling4_simplified.csv')
 
 # Get final values
 l_final = linucb.iloc[-1]
@@ -1120,7 +1120,7 @@ print(f'  Sales: {((l_final["roll_sales"] - h_final["roll_sales"]) / h_final["ro
     - Documented visualization files and their usage
 
 - Action Items:
-* [x] Created `src/tests/results/README.md` with comprehensive results documentation
+* [x] Created `data/results/README.md` with comprehensive results documentation
 * [x] Finalized Results section structure (6.1, 6.2, 6.3 subsections)
 * [x] Verified figure references point to existing visualization files
 * [x] Ensured consistency with Methodology section terminology
@@ -1146,7 +1146,7 @@ print(f'  Sales: {((l_final["roll_sales"] - h_final["roll_sales"]) / h_final["ro
 
 - **_Documentation Created_**
 
-**Results README (`src/tests/results/README.md`):**
+**Results README (`data/results/README.md`):**
 - Directory structure overview
 - CSV file column descriptions
 - Final performance metrics table
