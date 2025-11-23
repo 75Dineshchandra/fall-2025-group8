@@ -22,15 +22,17 @@ from Components.model import (
 
 
 # ===== FILE PATHS =====
-data_dir = src_dir / "data"
+# Go up from src/tests to repo root, then into data/
+repo_root = src_dir.parent
+data_dir = repo_root / "data"
 feature_matrix_file = data_dir / "feature_matrix.csv"
 action_matrix_file = data_dir / "action_matrix.csv"
 merged_data_file = data_dir / "data_healthscore_mapped.csv"
 time_slot_mapping_file = data_dir / "time_slot_mapping.csv"
 
 # Directory to save trained models and results
-results_dir = current_dir / "results"
-results_dir.mkdir(exist_ok=True)
+results_dir = repo_root / "data" / "results"
+results_dir.mkdir(parents=True, exist_ok=True)
 
 # ===== CONFIGURATION =====
 lambda_values_to_test = [0.0, 0.05, 0.10, 0.20, 0.30, 0.50, 0.70, 1.0]  # lower = popularity, higher = health

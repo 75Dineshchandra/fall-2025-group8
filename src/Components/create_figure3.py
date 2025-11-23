@@ -17,14 +17,15 @@ sys.path.insert(0, str(SRC))
 # Import model and helper functions
 from Components.model import LinUCB, load_feature_matrix, load_action_matrix, compute_rewards_for_lambda
 
-# File paths
-DATA_DIR = SRC / "data"
+# File paths - SRC is src/, need to go to repo root
+REPO_ROOT = SRC.parent
+DATA_DIR = REPO_ROOT / "data"
 FEATURE_MATRIX = DATA_DIR / "feature_matrix.csv"
 ACTION_MATRIX = DATA_DIR / "action_matrix.csv"
 MERGED_DATA = DATA_DIR / "data_healthscore_mapped.csv"
 TIMESLOTS = DATA_DIR / "time_slot_mapping.csv"
 
-RESULTS_DIR = SRC / "tests" / "results"
+RESULTS_DIR = REPO_ROOT / "data" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Constants

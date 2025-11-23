@@ -8,8 +8,8 @@ from pathlib import Path
 import sys
 import joblib
 
-# Ensure repo root is on sys.path so Components can be imported
-sys.path.append(str(Path(__file__).parent.parent))
+# Ensure src/ is on sys.path so Components can be imported
+sys.path.append(str(Path(__file__).parent))
 
 import Components.env as env
 

@@ -621,7 +621,7 @@ def load_env_data(repo_root: str = ""):
     repo_root: optional path prefix (default: current working directory)
     """
     global merged_data, feature_df, item_to_index, index_to_item
-    data_dir = Path(repo_root) / "src" / "data" if repo_root else Path("src") / "data"
+    data_dir = Path(repo_root) / "data" if repo_root else Path("data")
 
     merged_data_file = data_dir / "data_healthscore_mapped.csv"
     feature_matrix_file = data_dir / "feature_matrix.csv"

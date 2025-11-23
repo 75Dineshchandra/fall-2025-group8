@@ -429,17 +429,18 @@ def main():
     Standalone training with VARIANT1 rewards.
     Tests multiple lambda values to find optimal health-popularity balance.
     """
-    # Paths relative to src/
+    # Paths relative to repo root
     current_dir = Path(__file__).resolve().parent
     src_dir = current_dir.parent
-    data_dir = src_dir / "data"
+    repo_root = src_dir.parent  # Go up from src/Components to src, then to repo root
+    data_dir = repo_root / "data"
 
     feature_matrix_file = data_dir / "feature_matrix.csv"
     action_matrix_file = data_dir / "action_matrix.csv"
     merged_data_file = data_dir / "data_healthscore_mapped.csv"
     time_slot_mapping_file = data_dir / "time_slot_mapping.csv"
 
-    results_dir = src_dir / "tests" / "results"
+    results_dir = repo_root / "data" / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
 
     lambda_values_to_test = [0.2, 0.3,0.4, 0.6, 0.8]
