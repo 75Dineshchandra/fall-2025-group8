@@ -15,7 +15,6 @@ A data-driven recommendation system that uses Contextual Multi-Armed Bandit (CMA
 - [Contributors](#contributors)
 
 ##  Overview
-
 This project implements a **LinUCB (Linear Upper Confidence Bound)** contextual bandit algorithm to recommend school meals that:
 - Maximize student participation (sales/popularity)
 - Maintain nutritional quality (health scores)
