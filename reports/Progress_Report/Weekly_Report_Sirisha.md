@@ -859,7 +859,7 @@ def verify_reward_calculation(lambda_value, verbose=True):
         if lambda_value > 0:
             rewards_lambda0 = compute_rewards_for_lambda(0.0)
             rewards_lambda1 = compute_rewards_for_lambda(1.0)
-            print(f"  ✓ Lambda scaling works: {np.mean(rewards_lambda1) > np.mean(rewards_lambda0)}")
+            print(f"  Lambda scaling works: {np.mean(rewards_lambda1) > np.mean(rewards_lambda0)}")
     
     # Return verification status
     is_valid = (max_diff < 1e-6) and np.all(rewards >= 0)
@@ -1027,7 +1027,7 @@ def plot_rolling4(df):
     plt.tight_layout()
     out_png = RESULTS_DIR / f"linucb_learning_performance_lambda_{LAMBDA}_rolling4.png"
     plt.savefig(out_png, dpi=300, bbox_inches="tight")
-    print(f"✓ Saved rolling 4-panel plot: {out_png}")
+    print(f"Saved rolling 4-panel plot: {out_png}")
     plt.show()
 ```
 

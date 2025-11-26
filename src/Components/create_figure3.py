@@ -150,7 +150,7 @@ def create_figure3():
     # Save figure
     out_png = RESULTS_DIR / "figure3_continuous_regret_calculation.png"
     plt.savefig(out_png, dpi=300, bbox_inches="tight")
-    print(f"\n✓ Saved Figure 3: {out_png}")
+    print(f"\nSaved Figure 3: {out_png}")
     
     # Print summary statistics
     print("\n" + "=" * 72)

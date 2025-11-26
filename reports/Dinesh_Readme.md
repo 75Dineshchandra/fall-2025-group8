@@ -454,4 +454,4 @@ def health_score(row, min_score=-300, max_score=800):
 data = load_data("data/sales.csv")
 data["HealthScore"] = data.apply(health_score, axis=1)
 data.to_csv("scored_data.csv", index=False)
-print("✅ Health scores calculated and saved to scored_data.csv")
+print("[SUCCESS] Health scores calculated and saved to scored_data.csv")
