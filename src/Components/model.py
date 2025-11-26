@@ -499,13 +499,13 @@ def main():
         regret = result['regret']
         regret_pct = 100 * regret / max(oracle, 1)
         
-        marker = "→" if lam == best_result['lambda'] else " "
+        marker = "->" if lam == best_result['lambda'] else " "
         print(f"{marker} {lam:<8.2f} {total:>12.2f} {oracle:>15.2f} {regret:>12.2f} {regret_pct:>11.1f}%")
     
     print()
     print(f"Best lambda: {best_result['lambda']:.2f}")
     print(f"Regret: {best_result['regret']:.2f} ({100*best_result['regret']/max(best_result['oracle_reward'],1):.1f}%)")
-    print("\nTraining complete! ✓")
+    print("\nTraining complete!")
 
 if __name__ == "__main__":
     main()

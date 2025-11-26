@@ -62,7 +62,7 @@ def main():
 
         model_path = results_dir / f"model_lambda_{lam:.2f}.joblib"
         model.save(str(model_path))
-        print(f"Saved model → {model_path.name}")
+        print(f"Saved model -> {model_path.name}")
 
     # Step 3: Print results summary table
     print("\n" + "=" * 70)

@@ -497,7 +497,7 @@ def add_timeslot_and_save(df, time_slot_lookup, output_file, standardize=True, k
     unmatched_count = tmp["time_slot_id"].isna().sum()
     total_rows = len(tmp)
     if unmatched_count > 0:
-        print(f"⚠️ Warning: {unmatched_count}/{total_rows} rows did NOT match the time slot lookup.")
+        print(f"[WARNING] {unmatched_count}/{total_rows} rows did NOT match the time slot lookup.")
         print("Sample unmatched rows:")
         print(tmp[tmp["time_slot_id"].isna()][["date", "school_name", "time_of_day"]].head(10))
 
@@ -516,7 +516,7 @@ def add_timeslot_and_save(df, time_slot_lookup, output_file, standardize=True, k
     tmp.to_csv(output_file, index=False)
 
     matched = tmp["time_slot_id"].notna().sum()
-    print(f"Added time_slot_id to {matched}/{total_rows} rows → saved to {output_file}")
+    print(f"Added time_slot_id to {matched}/{total_rows} rows -> saved to {output_file}")
 
     return tmp
 

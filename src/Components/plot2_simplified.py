@@ -121,7 +121,7 @@ def build_scaled_lookup(merged_csv, timeslots_csv, feature_matrix_csv):
     """
     Build lookup for SCALED sales and health values (0-10 range).
     
-    IMPORTANT: This is what the model uses for training!
+    Note: This is what the model uses for training!
     
     Returns: Dictionary mapping (time_slot_id, item_name) -> (sales_scaled, health_scaled)
     
@@ -643,7 +643,7 @@ def plot_comparison(df_random, df_health_first, df_linucb, use_scaled=True):
     suffix = "scaled" if use_scaled else "raw"
     out_png = RESULTS_DIR / f"model_comparison_lambda_{LAMBDA}_rolling4_{suffix}_simplified.png"
     plt.savefig(out_png, dpi=300, bbox_inches="tight")
-    print(f"✓ Saved comparison plot: {out_png}")
+    print(f"Saved comparison plot: {out_png}")
     plt.show()
 
 
