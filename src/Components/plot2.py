@@ -377,7 +377,7 @@ def plot_rolling4_comparison(df_random, df_linear, df_linucb):
     plt.tight_layout()
     out_png = RESULTS_DIR / f"model_comparison_lambda_{LAMBDA}_rolling4.png"
     plt.savefig(out_png, dpi=300, bbox_inches="tight")
-    print(f"✓ Saved comparison plot: {out_png}")
+    print(f"Saved comparison plot: {out_png}")
     plt.show()
 
 def plot_rolling4(df):
@@ -409,7 +409,7 @@ def plot_rolling4(df):
     plt.tight_layout()
     out_png = RESULTS_DIR / f"linucb_learning_performance_lambda_{LAMBDA}_rolling4.png"
     plt.savefig(out_png, dpi=300, bbox_inches="tight")
-    print(f"✓ Saved rolling 4-panel plot: {out_png}")
+    print(f"Saved rolling 4-panel plot: {out_png}")
     plt.show()
 
 

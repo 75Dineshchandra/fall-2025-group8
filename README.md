@@ -122,8 +122,8 @@ python3 src/main.py
 
 **What it does**:
 - Loads raw sales data from `data/data_healthscore_mapped.csv`
-- Builds item mapping (meal names → indices)
-- Creates time slot mapping (time periods → IDs)
+- Builds item mapping (meal names to indices)
+- Creates time slot mapping (time periods to IDs)
 - Generates action matrix (which items were available at each time step)
 - Builds feature matrix (nutritional features for each item)
 
@@ -147,7 +147,7 @@ Action matrix already exists, skipping rebuild
 [5/5] Building feature matrix.
 Feature matrix already exists, skipping rebuild
 
-Added time_slot_id to 224536/224536 rows → saved to data/with_timeslot.csv
+Added time_slot_id to 224536/224536 rows -> saved to data/with_timeslot.csv
 ```
 
 **Generated Files**:

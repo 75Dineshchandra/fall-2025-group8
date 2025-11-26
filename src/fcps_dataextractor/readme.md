@@ -117,7 +117,7 @@ python extract_unique_items.py --input "your_nutrition_data.csv"
 With custom output name:
 python extract_unique_items.py --input "nutrition_data.csv" --output "fcps_menu_items"
 
-## 🚀 5. `main.py`
+## 5. `main.py`
 
 ### Purpose
 Serves as the **entry point** for the entire pipeline.
@@ -153,7 +153,7 @@ Contains metadata for all buildings in the **Fairfax County Public Schools** dis
 }
 ```
 
-This file is used to map **school names → Building IDs** for API queries.
+This file is used to map **school names to Building IDs** for API queries.
 
 ---
 
@@ -173,7 +173,7 @@ flowchart TD
 ---
 ## Requirements
 
-Please make sure to install the following Python packages:
+Required Python packages:
 
 ```bash
 pip install numpy pandas requests requests python-dateutil pytz tqdm

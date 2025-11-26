@@ -121,7 +121,7 @@ def build_scaled_lookup(merged_csv, timeslots_csv, feature_matrix_csv):
     """
     Build lookup for SCALED sales and health values (0-10 range).
     
-    IMPORTANT: This is what the model uses for training!
+    Note: This is what the model uses for training!
     
     Returns: Dictionary mapping (time_slot_id, item_name) -> (sales_scaled, health_scaled)
     
@@ -539,7 +539,7 @@ def plot_comparison(df_random, df_health_first, df_linucb, use_scaled=True):
             label=f"Health-First ({final_reward_health_first:.2f})", alpha=0.8, linestyle="-.")
     ax.plot(df_linucb["t"], df_linucb["roll_reward"], lw=3.0, color="tab:blue",
             label=f"LinUCB ({final_reward_linucb:.2f}) [BEST]", alpha=1.0, linestyle="-")
-    ax.set_title(f"Rolling Avg Reward (window={ROLL_W}) - Higher is Better", fontweight="bold")
+    ax.set_title(f"Rolling Avg Reward (expanding mean) - Higher is Better", fontweight="bold")
     ax.set_xlabel("Time Step")
     ax.set_ylabel("Avg Reward")
     ax.legend(loc="lower right", framealpha=0.9)
@@ -559,7 +559,7 @@ def plot_comparison(df_random, df_health_first, df_linucb, use_scaled=True):
     ax.plot(df_linucb["t"], df_linucb["roll_regret_pct"], lw=3.0, color="tab:blue",
             label=f"LinUCB ({final_regret_linucb:.1f}%) [BEST]", alpha=1.0, linestyle="-")
     ax.axhline(0, ls="--", lw=1.2, color="tab:green", alpha=0.6)
-    ax.set_title(f"Rolling Avg Regret % (window={ROLL_W}) - Lower is Better", fontweight="bold")
+    ax.set_title(f"Rolling Avg Regret % (expanding mean) - Lower is Better", fontweight="bold")
     ax.set_xlabel("Time Step")
     ax.set_ylabel("Avg Regret (%)")
     ax.set_ylim([0, 100])  # Percentage scale (0-100%)
@@ -583,7 +583,7 @@ def plot_comparison(df_random, df_health_first, df_linucb, use_scaled=True):
                 label=f"Health-First ({final_sales_health_first:.2f})", alpha=0.8, linestyle="-.")
         ax.plot(df_linucb["t"], df_linucb["roll_sales_scaled"], lw=3.0, color="tab:blue",
                 label=f"LinUCB ({final_sales_linucb:.2f}) [BEST]", alpha=1.0, linestyle="-")
-        ax.set_title(f"Rolling Avg Sales (SCALED to [0,10], window={ROLL_W})", fontweight="bold")
+        ax.set_title(f"Rolling Avg Sales (SCALED to [0,10], expanding mean)", fontweight="bold")
         ax.set_ylabel("Avg Sales (scaled)")
         ax.set_ylim([0, 10])  # Scaled range
     else:
@@ -598,7 +598,7 @@ def plot_comparison(df_random, df_health_first, df_linucb, use_scaled=True):
                 label=f"Health-First ({final_sales_health_first:.0f})", alpha=0.8, linestyle="-.")
         ax.plot(df_linucb["t"], df_linucb["roll_sales"], lw=3.0, color="tab:blue",
                 label=f"LinUCB ({final_sales_linucb:.0f}) [BEST]", alpha=1.0, linestyle="-")
-        ax.set_title(f"Rolling Avg Sales (RAW units, window={ROLL_W})", fontweight="bold")
+        ax.set_title(f"Rolling Avg Sales (RAW units, expanding mean)", fontweight="bold")
         ax.set_ylabel("Avg Sales (raw units)")
     ax.set_xlabel("Time Step")
     ax.legend(loc="best", framealpha=0.9)
@@ -617,7 +617,7 @@ def plot_comparison(df_random, df_health_first, df_linucb, use_scaled=True):
                 label=f"Health-First ({final_health_health_first:.2f})", alpha=0.8, linestyle="-.")
         ax.plot(df_linucb["t"], df_linucb["roll_health_scaled"], lw=3.0, color="tab:blue",
                 label=f"LinUCB ({final_health_linucb:.2f}) [BEST]", alpha=1.0, linestyle="-")
-        ax.set_title(f"Rolling Avg Health (SCALED to [0,10], window={ROLL_W})", fontweight="bold")
+        ax.set_title(f"Rolling Avg Health (SCALED to [0,10], expanding mean)", fontweight="bold")
         ax.set_ylabel("Avg Health (scaled)")
         ax.set_ylim([0, 10])  # Scaled range
     else:
@@ -632,7 +632,7 @@ def plot_comparison(df_random, df_health_first, df_linucb, use_scaled=True):
                 label=f"Health-First ({final_health_health_first:.2f})", alpha=0.8, linestyle="-.")
         ax.plot(df_linucb["t"], df_linucb["roll_health"], lw=3.0, color="tab:blue",
                 label=f"LinUCB ({final_health_linucb:.2f}) [BEST]", alpha=1.0, linestyle="-")
-        ax.set_title(f"Rolling Avg Health (RAW scores, window={ROLL_W})", fontweight="bold")
+        ax.set_title(f"Rolling Avg Health (RAW scores, expanding mean)", fontweight="bold")
         ax.set_ylabel("Avg Health (raw)")
     ax.set_xlabel("Time Step")
     ax.legend(loc="best", framealpha=0.9)
@@ -643,7 +643,7 @@ def plot_comparison(df_random, df_health_first, df_linucb, use_scaled=True):
     suffix = "scaled" if use_scaled else "raw"
     out_png = RESULTS_DIR / f"model_comparison_lambda_{LAMBDA}_rolling4_{suffix}_simplified.png"
     plt.savefig(out_png, dpi=300, bbox_inches="tight")
-    print(f"✓ Saved comparison plot: {out_png}")
+    print(f"Saved comparison plot: {out_png}")
     plt.show()
 
 
