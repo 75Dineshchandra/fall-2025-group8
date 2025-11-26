@@ -1,0 +1,18 @@
+# Health-Aware School Meal Recommendations - Requirements
+# Python 3.8 or higher required
+
+# Core Data Science Libraries
+pandas>=1.5.0
+numpy>=1.23.0
+
+# Machine Learning
+scikit-learn>=1.2.0
+joblib>=1.2.0
+
+# Visualization
+matplotlib>=3.6.0
+
+# HTTP Requests (for data extraction)
+requests>=2.28.0
+
+
