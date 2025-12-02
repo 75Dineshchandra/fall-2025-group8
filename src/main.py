@@ -22,7 +22,7 @@ if __name__ == "__main__":
     optimal_model_path = "data/results/model_lambda_0.30.joblib"
     
     recommendations = env.recommend_with_trained_model(
-        target_date='2025-11-25',
+        target_date='2025-12-03',
         school="HERNDON_HIGH",
         meal_time="lunch",
         model_path=optimal_model_path,
