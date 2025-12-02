@@ -33,21 +33,22 @@ import matplotlib.pyplot as plt
 
 # Get project paths
 HERE = Path(__file__).resolve().parent
-SRC = HERE if HERE.name == "src" else HERE.parent
+
+PROJECT_ROOT = HERE.parent.parent if HERE.name == "Components" else HERE.parent
+SRC = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC))
 
 # Import model and helper functions
 from Components.model import LinUCB, load_feature_matrix, load_action_matrix, compute_rewards_for_lambda
 
-# File paths - SRC is src/, need to go to repo root
-REPO_ROOT = SRC.parent
-DATA_DIR = REPO_ROOT / "data"
+# File paths
+DATA_DIR = PROJECT_ROOT / "data"
 FEATURE_MATRIX = DATA_DIR / "feature_matrix.csv"  # Features for each (time_slot, item)
 ACTION_MATRIX = DATA_DIR / "action_matrix.csv"    # Which items available at each time
 MERGED_DATA = DATA_DIR / "data_healthscore_mapped.csv"  # Sales + health data
 TIMESLOTS = DATA_DIR / "time_slot_mapping.csv"    # Time slot mappings
 
-RESULTS_DIR = REPO_ROOT / "data" / "results"
+RESULTS_DIR = PROJECT_ROOT / "data" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Constants
@@ -741,10 +742,10 @@ def main():
     print(f"   3. Random (Rule):          Health={random_health:.2f}")
     
     print(f"\n TRADE-OFF ANALYSIS:")
-    print(f"   • LinUCB achieves {((linucb_reward - health_first_reward) / health_first_reward * 100):.1f}% higher reward by balancing sales + health")
-    print(f"   • Health-First achieves {((health_first_health - linucb_health) / linucb_health * 100):.1f}% higher health by prioritizing nutrition")
-    print(f"   • Choose LinUCB if optimizing for overall reward (sales + health balance)")
-    print(f"   • Choose Health-First if maximizing health/nutrition is the primary goal")
+    print(f"    LinUCB achieves {((linucb_reward - health_first_reward) / health_first_reward * 100):.1f}% higher reward by balancing sales + health")
+    print(f"    Health-First achieves {((health_first_health - linucb_health) / linucb_health * 100):.1f}% higher health by prioritizing nutrition")
+    print(f"    Choose LinUCB if optimizing for overall reward (sales + health balance)")
+    print(f"    Choose Health-First if maximizing health/nutrition is the primary goal")
     print("=" * 72)
 
 
